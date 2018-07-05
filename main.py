@@ -53,7 +53,7 @@ parser.add_argument('--batch_size', type=int, default=1, help='Number of images 
 parser.add_argument('--num_val_images', type=int, default=10, help='The number of images to used for validations')
 parser.add_argument('--h_flip', type=str2bool, default=False, help='Whether to randomly flip the image horizontally for data augmentation')
 parser.add_argument('--v_flip', type=str2bool, default=False, help='Whether to randomly flip the image vertically for data augmentation')
-parser.add_argument('--brightness', type=float, default=None, help='Whether to randomly change the image brightness for data augmentation. Specifies the max bightness change as a factor between 0.0 and 1.0. For example, 0.1 represents a max brightness change of 10% (+-).')
+parser.add_argument('--brightness', type=float, default=None, help='Whether to randomly change the image brightness for data augmentation. Specifies the max bightness change as a factor between 0.0 and 1. For example, .1 represents a max brightness change of 10% (+-).')
 parser.add_argument('--rotation', type=float, default=None, help='Whether to randomly rotate the image for data augmentation. Specifies the max rotation angle in degrees.')
 parser.add_argument('--learn_rate', type=float, default=0.0001, help='Specify the learning rate.')
 parser.add_argument('--model', type=str, default="FC-DenseNet56", help='The model you are using. Currently supports:\
@@ -96,6 +96,27 @@ def load_image(path):
     image = cv2.cvtColor(cv2.imread(path,-1), cv2.COLOR_BGR2RGB)
     return image
 
+def increase_brightness(img, value):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)     # convert from BGR-->HSV
+    h, s, v = cv2.split(hsv)
+
+    lim = 255 - value #limiting overflow
+    v[v > lim] = 255
+    v[v <= lim] += value
+
+    final_hsv = cv2.merge((h, s, v))
+    img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
+    return img
+
+def decrease_brightness(img, value):
+    hsvImg = cv2.cvtColor(img, cv2.COLOR_BGR2HSV) # convert from BGR-->HSV
+    value = abs(value) # only allow positive values
+    factor = abs(1-value/100)
+    hsvImg[...,2] = hsvImg[...,2] * factor
+
+    img = cv2.cvtColor(hsvImg, cv2.COLOR_HSV2BGR)
+    return img
+
 def data_augmentation(input_image, output_image):
     # Data augmentation
     input_image, output_image = utils.random_crop(input_image, output_image, args.crop_height, args.crop_width)
@@ -107,9 +128,15 @@ def data_augmentation(input_image, output_image):
         input_image = cv2.flip(input_image, 0)
         output_image = cv2.flip(output_image, 0)
     if args.brightness:
-        factor = 1.0 + random.uniform(-1.0*args.brightness, args.brightness)
-        table = np.array([((i / 255.0) * factor) * 255 for i in np.arange(0, 256)]).astype(np.uint8)
-        input_image = cv2.LUT(input_image, table)
+        #factor = 1.0 + random.uniform(-1.0*args.brightness, args.brightness)
+        #table = np.array([((i / 255.0) * factor) * 255 for i in np.arange(0, 256)]).astype(np.uint8)
+        #input_image = cv2.LUT(input_image, table)
+        value = random.uniform(-1.0*args.brightness, args.brightness)*100
+        if value > 0:
+            input_image = increase_brightness(input_image, abs(value))
+        if value < 0:
+            input_image = decrease_brightness(input_image, abs(value))
+
     if args.rotation:
         angle = random.uniform(-1*args.rotation, args.rotation)
     if args.rotation:
@@ -197,6 +224,13 @@ if args.class_balancing:
     unweighted_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network, labels=net_output)
     #losses = unweighted_loss * class_weights
     losses = unweighted_loss * weights #this was changed to fix the class_balancing issue, see issue #68
+    print("Printing class weights")
+    print(class_weights)
+
+    print("Printing weights:")
+    print(weights)
+
+
 else:
     losses = tf.nn.softmax_cross_entropy_with_logits(logits=network, labels=net_output)
 loss = tf.reduce_mean(losses)
@@ -236,6 +270,9 @@ if args.mode == "train":
     print("Num Epochs -->", args.num_epochs)
     print("Batch Size -->", args.batch_size)
     print("Num Classes -->", num_classes)
+    print("Class Balancing -->", args.class_balancing)
+    print("Learning Rate -->", args.learn_rate)
+
 
     print("Data Augmentation:")
     print("\tVertical Flip -->", args.v_flip)
