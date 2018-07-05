@@ -10,9 +10,11 @@ import os, sys
 import subprocess
 
 
-import helpers 
-import utils 
+import helpers
+import utils
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 sys.path.append("models")
@@ -53,6 +55,7 @@ parser.add_argument('--h_flip', type=str2bool, default=False, help='Whether to r
 parser.add_argument('--v_flip', type=str2bool, default=False, help='Whether to randomly flip the image vertically for data augmentation')
 parser.add_argument('--brightness', type=float, default=None, help='Whether to randomly change the image brightness for data augmentation. Specifies the max bightness change as a factor between 0.0 and 1.0. For example, 0.1 represents a max brightness change of 10% (+-).')
 parser.add_argument('--rotation', type=float, default=None, help='Whether to randomly rotate the image for data augmentation. Specifies the max rotation angle in degrees.')
+parser.add_argument('--learn_rate', type=float, default=0.0001, help='Specify the learning rate.')
 parser.add_argument('--model', type=str, default="FC-DenseNet56", help='The model you are using. Currently supports:\
     FC-DenseNet56, FC-DenseNet67, FC-DenseNet103, Encoder-Decoder, Encoder-Decoder-Skip, RefineNet-Res50, RefineNet-Res101, RefineNet-Res152, \
     FRRN-A, FRRN-B, MobileUNet, MobileUNet-Skip, PSPNet-Res50, PSPNet-Res101, PSPNet-Res152, GCN-Res50, GCN-Res101, GCN-Res152, DeepLabV3-Res50 \
@@ -135,7 +138,7 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess=tf.Session(config=config)
 
-# Get the selected model. 
+# Get the selected model.
 # Some of them require pre-trained ResNet
 
 if "Res50" in args.model and not os.path.isfile("models/resnet_v2_50.ckpt"):
@@ -148,7 +151,7 @@ if "Res152" in args.model and not os.path.isfile("models/resnet_v2_152.ckpt"):
 # Compute your softmax cross entropy loss
 print("Preparing the model ...")
 net_input = tf.placeholder(tf.float32,shape=[None,None,None,3])
-net_output = tf.placeholder(tf.float32,shape=[None,None,None,num_classes]) 
+net_output = tf.placeholder(tf.float32,shape=[None,None,None,num_classes])
 
 
 network = None
@@ -192,12 +195,14 @@ if args.class_balancing:
     weights = tf.reduce_sum(class_weights * net_output, axis=-1)
     unweighted_loss = None
     unweighted_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network, labels=net_output)
-    losses = unweighted_loss * class_weights
+    #losses = unweighted_loss * class_weights
+    losses = unweighted_loss * weights #this was changed to fix the class_balancing issue, see issue #68
 else:
     losses = tf.nn.softmax_cross_entropy_with_logits(logits=network, labels=net_output)
 loss = tf.reduce_mean(losses)
 
-opt = tf.train.AdamOptimizer(0.0001).minimize(loss, var_list=[var for var in tf.trainable_variables()])
+
+opt = tf.train.AdamOptimizer(args.learn_rate).minimize(loss, var_list=[var for var in tf.trainable_variables()])
 
 saver=tf.train.Saver(max_to_keep=1000)
 sess.run(tf.global_variables_initializer())
@@ -265,9 +270,9 @@ if args.mode == "train":
         epoch_st=time.time()
         for i in range(num_iters):
             # st=time.time()
-            
+
             input_image_batch = []
-            output_image_batch = [] 
+            output_image_batch = []
 
             # Collect a batch of images
             for j in range(args.batch_size):
@@ -283,19 +288,19 @@ if args.mode == "train":
                     # Prep the data. Make sure the labels are in one-hot format
                     input_image = np.float32(input_image) / 255.0
                     output_image = np.float32(helpers.one_hot_it(label=output_image, label_values=label_values))
-                    
+
                     input_image_batch.append(np.expand_dims(input_image, axis=0))
                     output_image_batch.append(np.expand_dims(output_image, axis=0))
 
             # ***** THIS CAUSES A MEMORY LEAK AS NEW TENSORS KEEP GETTING CREATED *****
-            # input_image = tf.image.crop_to_bounding_box(input_image, offset_height=0, offset_width=0, 
+            # input_image = tf.image.crop_to_bounding_box(input_image, offset_height=0, offset_width=0,
             #                                               target_height=args.crop_height, target_width=args.crop_width).eval(session=sess)
-            # output_image = tf.image.crop_to_bounding_box(output_image, offset_height=0, offset_width=0, 
+            # output_image = tf.image.crop_to_bounding_box(output_image, offset_height=0, offset_width=0,
             #                                               target_height=args.crop_height, target_width=args.crop_width).eval(session=sess)
             # ***** THIS CAUSES A MEMORY LEAK AS NEW TENSORS KEEP GETTING CREATED *****
 
             # memory()
-            
+
             if args.batch_size == 1:
                 input_image_batch = input_image_batch[0]
                 output_image_batch = output_image_batch[0]
@@ -314,7 +319,7 @@ if args.mode == "train":
 
         mean_loss = np.mean(current_losses)
         avg_loss_per_epoch.append(mean_loss)
-        
+
         # Create directories if needed
         if not os.path.isdir("%s/%04d"%("checkpoints",epoch)):
             os.makedirs("%s/%04d"%("checkpoints",epoch))
@@ -344,7 +349,7 @@ if args.mode == "train":
 
             # Do the validation on a small set of validation images
             for ind in val_indices:
-                
+
                 input_image = np.expand_dims(np.float32(load_image(val_input_names[ind])[:args.crop_height, :args.crop_width]),axis=0)/255.0
                 gt = load_image(val_output_names[ind])[:args.crop_height, :args.crop_width]
                 gt = helpers.reverse_one_hot(helpers.one_hot_it(gt, label_values))
@@ -352,14 +357,14 @@ if args.mode == "train":
                 # st = time.time()
 
                 output_image = sess.run(network,feed_dict={net_input:input_image})
-                
+
 
                 output_image = np.array(output_image[0,:,:,:])
                 output_image = helpers.reverse_one_hot(output_image)
                 out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
 
                 accuracy, class_accuracies, prec, rec, f1, iou = utils.evaluate_segmentation(pred=output_image, label=gt, num_classes=num_classes)
-            
+
                 file_name = utils.filepath_to_name(val_input_names[ind])
                 target.write("%s, %f, %f, %f, %f, %f"%(file_name, accuracy, prec, rec, f1, iou))
                 for item in class_accuracies:
@@ -372,9 +377,9 @@ if args.mode == "train":
                 recall_list.append(rec)
                 f1_list.append(f1)
                 iou_list.append(iou)
-                
+
                 gt = helpers.colour_code_segmentation(gt, label_values)
-     
+
                 file_name = os.path.basename(val_input_names[ind])
                 file_name = os.path.splitext(file_name)[0]
                 cv2.imwrite("%s/%04d/%s_pred.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
@@ -414,7 +419,7 @@ if args.mode == "train":
     fig = plt.figure(figsize=(11,8))
     ax1 = fig.add_subplot(111)
 
-    
+
     ax1.plot(range(args.num_epochs), avg_scores_per_epoch)
     ax1.set_title("Average validation accuracy vs epochs")
     ax1.set_xlabel("Epoch")
@@ -427,7 +432,7 @@ if args.mode == "train":
 
     ax1 = fig.add_subplot(111)
 
-    
+
     ax1.plot(range(args.num_epochs), avg_loss_per_epoch)
     ax1.set_title("Average loss vs epochs")
     ax1.set_xlabel("Epoch")
@@ -477,7 +482,7 @@ elif args.mode == "test":
         out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
 
         accuracy, class_accuracies, prec, rec, f1, iou = utils.evaluate_segmentation(pred=output_image, label=gt, num_classes=num_classes)
-    
+
         file_name = utils.filepath_to_name(val_input_names[ind])
         target.write("%s, %f, %f, %f, %f, %f"%(file_name, accuracy, prec, rec, f1, iou))
         for item in class_accuracies:
@@ -490,7 +495,7 @@ elif args.mode == "test":
         recall_list.append(rec)
         f1_list.append(f1)
         iou_list.append(iou)
-        
+
         gt = helpers.colour_code_segmentation(gt, label_values)
 
         cv2.imwrite("%s/%s_pred.png"%("Val", file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
@@ -530,7 +535,7 @@ elif args.mode == "predict":
     print("Num Classes -->", num_classes)
     print("Image -->", args.image)
     print("")
-    
+
     sys.stdout.write("Testing image " + args.image)
     sys.stdout.flush()
 

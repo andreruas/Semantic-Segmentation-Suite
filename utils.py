@@ -249,8 +249,8 @@ def compute_class_weights(labels_dir, label_values):
         sys.stdout.flush()
 
     total_pixels = float(np.sum(class_pixels))
-    index_to_delete = np.argwhere(class_pixels==0.0)
-    class_pixels = np.delete(class_pixels, index_to_delete)
+    #index_to_delete = np.argwhere(class_pixels==0.0)
+    #class_pixels = np.delete(class_pixels, index_to_delete)
 
     class_weights = total_pixels / class_pixels
     class_weights = class_weights / np.sum(class_weights)
@@ -265,4 +265,3 @@ def memory():
     py = psutil.Process(pid)
     memoryUse = py.memory_info()[0]/2.**30  # Memory use in GB
     print('Memory usage in GBs:', memoryUse)
-
