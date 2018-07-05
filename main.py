@@ -131,7 +131,7 @@ def data_augmentation(input_image, output_image):
         #factor = 1.0 + random.uniform(-1.0*args.brightness, args.brightness)
         #table = np.array([((i / 255.0) * factor) * 255 for i in np.arange(0, 256)]).astype(np.uint8)
         #input_image = cv2.LUT(input_image, table)
-        value = random.uniform(-1.0*args.brightness, args.brightness)*100
+        value = int(random.uniform(-1.0*args.brightness, args.brightness)*100)
         if value > 0:
             input_image = increase_brightness(input_image, abs(value))
         if value < 0:
@@ -224,11 +224,8 @@ if args.class_balancing:
     unweighted_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network, labels=net_output)
     #losses = unweighted_loss * class_weights
     losses = unweighted_loss * weights #this was changed to fix the class_balancing issue, see issue #68
-    print("Printing class weights")
+    print("Printing class weights for", args.dataset, "...")
     print(class_weights)
-
-    print("Printing weights:")
-    print(weights)
 
 
 else:
