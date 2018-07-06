@@ -45,6 +45,7 @@ parser.add_argument('--checkpoint_step', type=int, default=10, help='How often t
 parser.add_argument('--validation_step', type=int, default=1, help='How often to perform validation (epochs)')
 parser.add_argument('--class_balancing', type=str2bool, default=False, help='Whether to use median frequency class weights to balance the classes in the loss')
 parser.add_argument('--image', type=str, default=None, help='The image you want to predict on. Only valid in "predict" mode.')
+parser.add_argument('--image_folder', type=str, default="Predict", help='The directory of images you want to predict on. Only valid in "predict_folder" mode.')
 parser.add_argument('--continue_training', type=str2bool, default=False, help='Whether to continue training from a checkpoint')
 parser.add_argument('--dataset', type=str, default="CamVid", help='Dataset you are using.')
 parser.add_argument('--crop_height', type=int, default=512, help='Height of cropped input image to network')
@@ -607,5 +608,66 @@ elif args.mode == "predict":
     print("Finished!")
     print("Wrote image " + "%s/%s_pred.png"%("Test", file_name))
 
+##-------------------------------------------------------------------------------------------------##
+
+elif args.mode == "predict_folder":
+
+    print("\n***** Begin prediction on folder *****")
+    print("Dataset -->", args.dataset)
+    print("Model -->", args.model)
+    print("Crop Height -->", args.crop_height)
+    print("Crop Width -->", args.crop_width)
+    print("Num Classes -->", num_classes)
+    print("Image Folder -->", args.image_folder)
+    print("")
+
+    imageDir = args.image_folder #default is 'Predict'
+    image_path_list = []
+    valid_image_extensions = ".png" #specify your image extension here
+
+    #this will loop through all files in imageDir
+    for file in os.listdir(imageDir):
+        extension = os.path.splitext(file)[1]
+        if extension.lower() not in valid_image_extensions:
+            continue
+        image_path_list.append(os.path.join(imageDir, file))
+
+    for imagePath in image_path_list:
+        img = cv2.imread(imagePath)
+        #imagePath2 = imagePath[:-8] + ".jpg"
+        #img2 = cv2.imread(imagePath2)
+        if img is None:
+            continue
+
+        #sys.stdout.write("Testing image " + imagePath)
+        #sys.stdout.flush()
+
+        # to get the right aspect ratio of the output
+        loaded_image = load_image(imagePath)
+        height, width, channels = loaded_image.shape
+        resize_height = int(height / (width / args.crop_width))
+
+        resized_image =cv2.resize(loaded_image, (args.crop_width, resize_height))
+        input_image = np.expand_dims(np.float32(resized_image[:args.crop_height, :args.crop_width]),axis=0)/255.0
+
+        st = time.time()
+        output_image = sess.run(network,feed_dict={net_input:input_image})
+
+        run_time = time.time()-st
+
+        output_image = np.array(output_image[0,:,:,:])
+        output_image = helpers.reverse_one_hot(output_image)
+
+        # this was generalized to accept any dataset
+        class_names_list, label_values = helpers.get_label_info(os.path.join(args.dataset, "class_dict.csv"))
+
+        out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
+        file_name = utils.filepath_to_name(imagePath)
+        cv2.imwrite("%s/%s_pred.png"%("Test", file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
+
+        print("Wrote image " + "%s/%s_pred.png"%("Test", file_name))
+
+
+##-------------------------------------------------------------------------------------------------##
 else:
     ValueError("Invalid mode selected.")
