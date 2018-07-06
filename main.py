@@ -558,6 +558,8 @@ elif args.mode == "test":
 
 elif args.mode == "predict":
 
+    ## Usage: python3 main.py --mode predict --image test1.png --dataset datasetName --model DeepLabV3-Res152
+
     if args.image is None:
         ValueError("You must pass an image path when using prediction mode.")
 
@@ -589,8 +591,8 @@ elif args.mode == "predict":
     output_image = np.array(output_image[0,:,:,:])
     output_image = helpers.reverse_one_hot(output_image)
 
-    # this needs to get generalized
-    class_names_list, label_values = helpers.get_label_info(os.path.join("CamVid", "class_dict.csv"))
+    # this was generalized to accept any dataset
+    class_names_list, label_values = helpers.get_label_info(os.path.join(args.dataset, "class_dict.csv"))
 
     out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
     file_name = utils.filepath_to_name(args.image)
