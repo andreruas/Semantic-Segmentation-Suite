@@ -685,11 +685,12 @@ elif args.mode == "predict_folder":
 
     duration = time.time() - start
     avgSpeed = duration/i
+    FPS = 1/avgSpeed
     print("")
     print("Finished!")
     print("")
     print("Model generated predictions for " + str(i) + " images in " + str(round(duration,3)) + " seconds.")
-    print("Average inference speed: " + str(round(avgSpeed,3)) + " seconds per image.")
+    print("Average inference speed: " + str(round(avgSpeed,3)) + " seconds per image. ( " + str(round(FPS,1)) +  " FPS)")
     print("")
 
 
