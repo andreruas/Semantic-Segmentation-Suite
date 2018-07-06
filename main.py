@@ -257,6 +257,7 @@ avg_scores_per_epoch = []
 print("Loading the data ...")
 train_input_names,train_output_names, val_input_names, val_output_names, test_input_names, test_output_names = prepare_data()
 
+##-------------------------------------------------------------------------------------------------##
 if args.mode == "train":
 
     print("\n***** Begin training *****")
@@ -474,6 +475,7 @@ if args.mode == "train":
 
     plt.savefig('loss_vs_epochs.png')
 
+##-------------------------------------------------------------------------------------------------##
 elif args.mode == "test":
     print("\n***** Begin testing *****")
     print("Dataset -->", args.dataset)
@@ -482,6 +484,9 @@ elif args.mode == "test":
     print("Crop Width -->", args.crop_width)
     print("Num Classes -->", num_classes)
     print("")
+
+    ## Usage: python3 main.py --mode test --dataset dataSet --crop_height 515 --crop_width 915 --model DeepLabV3-Res152
+
 
     # Create directories if needed
     if not os.path.isdir("%s"%("Val")):
@@ -498,12 +503,12 @@ elif args.mode == "test":
     run_times_list = []
 
     # Run testing on ALL test images
-    for ind in range(len(val_input_names)):
-        sys.stdout.write("\rRunning test image %d / %d"%(ind+1, len(val_input_names)))
+    for ind in range(len(test_input_names)):
+        sys.stdout.write("\rRunning test image %d / %d"%(ind+1, len(test_input_names)))
         sys.stdout.flush()
 
-        input_image = np.expand_dims(np.float32(load_image(val_input_names[ind])[:args.crop_height, :args.crop_width]),axis=0)/255.0
-        gt = load_image(val_output_names[ind])[:args.crop_height, :args.crop_width]
+        input_image = np.expand_dims(np.float32(load_image(test_input_names[ind])[:args.crop_height, :args.crop_width]),axis=0)/255.0
+        gt = load_image(test_output_names[ind])[:args.crop_height, :args.crop_width]
         gt = helpers.reverse_one_hot(helpers.one_hot_it(gt, label_values))
 
         st = time.time()
@@ -517,7 +522,7 @@ elif args.mode == "test":
 
         accuracy, class_accuracies, prec, rec, f1, iou = utils.evaluate_segmentation(pred=output_image, label=gt, num_classes=num_classes)
 
-        file_name = utils.filepath_to_name(val_input_names[ind])
+        file_name = utils.filepath_to_name(test_input_names[ind])
         target.write("%s, %f, %f, %f, %f, %f"%(file_name, accuracy, prec, rec, f1, iou))
         for item in class_accuracies:
             target.write(", %f"%(item))
@@ -555,7 +560,7 @@ elif args.mode == "test":
     print("Average mean IoU score = ", avg_iou)
     print("Average run time = ", avg_time)
 
-
+##-------------------------------------------------------------------------------------------------##
 elif args.mode == "predict":
 
     ## Usage: python3 main.py --mode predict --image test1.png --dataset datasetName --model DeepLabV3-Res152
