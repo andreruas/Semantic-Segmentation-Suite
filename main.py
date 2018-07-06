@@ -610,6 +610,9 @@ elif args.mode == "predict":
 
 ##-------------------------------------------------------------------------------------------------##
 
+    ## Usage: python3 main.py --mode predict_folder --dataset dataset --crop_height 390 --crop_width 390 --model DeepLabV3-Res152
+
+
 elif args.mode == "predict_folder":
 
     print("\n***** Begin prediction on folder *****")
@@ -623,7 +626,7 @@ elif args.mode == "predict_folder":
 
     imageDir = args.image_folder #default is 'Predict'
     image_path_list = []
-    valid_image_extensions = ".png" #specify your image extension here
+    valid_image_extensions = ".jpg" #specify your image extension here
 
     #this will loop through all files in imageDir
     for file in os.listdir(imageDir):
