@@ -578,6 +578,10 @@ elif args.mode == "predict":
     print("Image -->", args.image)
     print("")
 
+    # Create directories if needed
+    if not os.path.isdir("%s"%("Test")):
+            os.makedirs("%s"%("Test"))
+
     sys.stdout.write("Testing image " + args.image)
     sys.stdout.flush()
 
@@ -624,9 +628,14 @@ elif args.mode == "predict_folder":
     print("Image Folder -->", args.image_folder)
     print("")
 
+    # Create directories if needed
+    if not os.path.isdir("%s"%("Test")):
+            os.makedirs("%s"%("Test"))
+
     imageDir = args.image_folder #default is 'Predict'
     image_path_list = []
-    valid_image_extensions = ".jpg" #specify your image extension here
+    valid_image_extensions = [".jpg", ".png"] #specify your image extension here
+    i = 0
 
     #this will loop through all files in imageDir
     for file in os.listdir(imageDir):
@@ -635,12 +644,16 @@ elif args.mode == "predict_folder":
             continue
         image_path_list.append(os.path.join(imageDir, file))
 
-    for imagePath in image_path_list:
+    start = time.time()
+
+    for imagePath in sorted(image_path_list):
         img = cv2.imread(imagePath)
         #imagePath2 = imagePath[:-8] + ".jpg"
         #img2 = cv2.imread(imagePath2)
         if img is None:
             continue
+
+        i = i + 1;
 
         #sys.stdout.write("Testing image " + imagePath)
         #sys.stdout.flush()
@@ -669,6 +682,15 @@ elif args.mode == "predict_folder":
         cv2.imwrite("%s/%s_pred.png"%("Test", file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
 
         print("Wrote image " + "%s/%s_pred.png"%("Test", file_name))
+
+    duration = time.time() - start
+    avgSpeed = duration/i
+    print("")
+    print("Finished!")
+    print("")
+    print("Model generated predictions for " + str(i) + " images in " + str(round(duration,3)) + " seconds.")
+    print("Average inference speed: " + str(round(avgSpeed,3)) + " seconds per image.")
+    print("")
 
 
 ##-------------------------------------------------------------------------------------------------##
