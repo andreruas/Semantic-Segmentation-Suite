@@ -645,8 +645,14 @@ elif args.mode == "predict_folder":
         image_path_list.append(os.path.join(imageDir, file))
 
     start = time.time()
+    dur1 = 0 #timing first part of loop
+    dur2 = 0 #timing second part of loop
+    dur3 = 0 #timing second part of loop
 
     for imagePath in sorted(image_path_list):
+
+        start1 = time.time()
+
         img = cv2.imread(imagePath)
         #imagePath2 = imagePath[:-8] + ".jpg"
         #img2 = cv2.imread(imagePath2)
@@ -667,7 +673,16 @@ elif args.mode == "predict_folder":
         input_image = np.expand_dims(np.float32(resized_image[:args.crop_height, :args.crop_width]),axis=0)/255.0
 
         st = time.time()
+        end1 = time.time()
+        dur1 = dur1 + (end1-start1)
+
+        start2 = time.time()
         output_image = sess.run(network,feed_dict={net_input:input_image})
+        end2 = time.time()
+        dur2 = dur2 + (end2-start2)
+
+        start3 = time.time()
+
 
         run_time = time.time()-st
 
@@ -683,15 +698,24 @@ elif args.mode == "predict_folder":
 
         print("Wrote image " + "%s/%s_pred.png"%("Test", file_name))
 
+        end3 = time.time()
+        dur3 = dur3 + (end3-start3)
+
     duration = time.time() - start
     avgSpeed = duration/i
+    avgSpeed1 = dur1/i
+    avgSpeed2 = dur2/i
+    avgSpeed3 = dur3/i
     FPS = 1/avgSpeed
     print("")
     print("Finished!")
     print("")
     print("Model generated predictions for " + str(i) + " images in " + str(round(duration,3)) + " seconds.")
-    print("Average inference speed: " + str(round(avgSpeed,3)) + " seconds per image. ( " + str(round(FPS,1)) +  " FPS)")
+    print("Average inference speed: " + str(round(avgSpeed,3)) + " seconds per image. (" + str(round(FPS,1)) +  " FPS)")
     print("")
+    print("Reading image average time: " + str(round(avgSpeed1,3)))
+    print("Predict image average time: " + str(round(avgSpeed2,3)))
+    print("Writing image average time: " + str(round(avgSpeed3,3)))
 
 
 ##-------------------------------------------------------------------------------------------------##

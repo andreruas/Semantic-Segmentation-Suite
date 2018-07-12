@@ -27,7 +27,8 @@ def ConvBlock(inputs, n_filters, kernel_size=[3, 3]):
     net = tf.nn.relu(slim.batch_norm(net, fused=True))
     return net
 
-def AtrousSpatialPyramidPoolingModule(inputs, depth=256):
+#def AtrousSpatialPyramidPoolingModule(inputs, depth=256):
+def AtrousSpatialPyramidPoolingModule(inputs, depth=64):
     """
 
     ASPP consists of (a) one 1×1 convolution and three 3×3 convolutions with rates = (6, 12, 18) when output stride = 16
