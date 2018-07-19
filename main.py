@@ -4,15 +4,10 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import numpy as np
 import time, datetime
-import argparse
-import random
-import os, sys
-import subprocess
+import argparse, random
+import os, sys, subprocess
 
-
-import helpers
-import utils
-import PostProcessing
+import helpers, utils, PostProcessing
 
 import matplotlib
 matplotlib.use('Agg')
@@ -66,74 +61,12 @@ parser.add_argument('--model', type=str, default="FC-DenseNet56", help='The mode
     DeepLabV3-Res101, DeepLabV3-Res152, DeepLabV3_plus-Res50, DeepLabV3_plus-Res101, DeepLabV3_plus-Res152, AdapNet, custom')
 args = parser.parse_args()
 
-# Get a list of the training, validation, and testing file paths
-def prepare_data(dataset_dir=args.dataset):
-    train_input_names=[]
-    train_output_names=[]
-    val_input_names=[]
-    val_output_names=[]
-    test_input_names=[]
-    test_output_names=[]
-    for file in os.listdir(dataset_dir + "/train"):
-        cwd = os.getcwd()
-        train_input_names.append(cwd + "/" + dataset_dir + "/train/" + file)
-    for file in os.listdir(dataset_dir + "/train_labels"):
-        cwd = os.getcwd()
-        train_output_names.append(cwd + "/" + dataset_dir + "/train_labels/" + file)
-    for file in os.listdir(dataset_dir + "/val"):
-        cwd = os.getcwd()
-        val_input_names.append(cwd + "/" + dataset_dir + "/val/" + file)
-    for file in os.listdir(dataset_dir + "/val_labels"):
-        cwd = os.getcwd()
-        val_output_names.append(cwd + "/" + dataset_dir + "/val_labels/" + file)
-    for file in os.listdir(dataset_dir + "/test"):
-        cwd = os.getcwd()
-        test_input_names.append(cwd + "/" + dataset_dir + "/test/" + file)
-    for file in os.listdir(dataset_dir + "/test_labels"):
-        cwd = os.getcwd()
-        test_output_names.append(cwd + "/" + dataset_dir + "/test_labels/" + file)
-    train_input_names.sort(),train_output_names.sort(), val_input_names.sort(), val_output_names.sort(), test_input_names.sort(), test_output_names.sort()
-    return train_input_names,train_output_names, val_input_names, val_output_names, test_input_names, test_output_names
-
-
 def load_image(path):
     image = cv2.cvtColor(cv2.imread(path,-1), cv2.COLOR_BGR2RGB)
     return image
 
-def data_augmentation(input_image, output_image):
-    # Data augmentation
-    input_image, output_image = utils.random_crop(input_image, output_image, args.crop_height, args.crop_width)
-
-    if args.h_flip and random.randint(0,1):
-        input_image = cv2.flip(input_image, 1)
-        output_image = cv2.flip(output_image, 1)
-    if args.v_flip and random.randint(0,1):
-        input_image = cv2.flip(input_image, 0)
-        output_image = cv2.flip(output_image, 0)
-    if (int(args.droplets) > 0):
-        input_image = helpers.blur_circle_rand(input_image,int(args.droplets)) #adding simulated droplets
-    if args.brightness:
-        #factor = 1.0 + random.uniform(-1.0*args.brightness, args.brightness)
-        #table = np.array([((i / 255.0) * factor) * 255 for i in np.arange(0, 256)]).astype(np.uint8)
-        #input_image = cv2.LUT(input_image, table)
-        value = int(random.uniform(-1.0*args.brightness, args.brightness)*100)
-        if value > 0:
-            input_image = helpers.increase_brightness(input_image, abs(value))
-        if value < 0:
-            input_image = helpers.decrease_brightness(input_image, abs(value))
-
-    if args.rotation:
-        angle = random.uniform(-1*args.rotation, args.rotation)
-    if args.rotation:
-        M = cv2.getRotationMatrix2D((input_image.shape[1]//2, input_image.shape[0]//2), angle, 1.0)
-        input_image = cv2.warpAffine(input_image, M, (input_image.shape[1], input_image.shape[0]), flags=cv2.INTER_NEAREST)
-        output_image = cv2.warpAffine(output_image, M, (output_image.shape[1], output_image.shape[0]), flags=cv2.INTER_NEAREST)
-
-    return input_image, output_image
-
 def download_checkpoints(model_name):
     subprocess.check_output(["python", "get_pretrained_checkpoints.py", "--model=" + model_name])
-
 
 # Get the names of the classes so we can record the evaluation results
 class_names_list, label_values = helpers.get_label_info(os.path.join(args.dataset, "class_dict.csv"))
@@ -166,9 +99,9 @@ print("Preparing the model ...")
 net_input = tf.placeholder(tf.float32,shape=[None,None,None,3])
 net_output = tf.placeholder(tf.float32,shape=[None,None,None,num_classes])
 
-
 network = None
 init_fn = None
+
 if args.model == "FC-DenseNet56" or args.model == "FC-DenseNet67" or args.model == "FC-DenseNet103":
     network = build_fc_densenet(net_input, preset_model = args.model, num_classes=num_classes)
 elif args.model == "RefineNet-Res50" or args.model == "RefineNet-Res101" or args.model == "RefineNet-Res152":
@@ -208,18 +141,14 @@ if args.class_balancing:
     weights = tf.reduce_sum(class_weights * net_output, axis=-1)
     unweighted_loss = None
     unweighted_loss = tf.nn.softmax_cross_entropy_with_logits(logits=network, labels=net_output)
-    #losses = unweighted_loss * class_weights
-    losses = unweighted_loss * weights #this was changed to fix the class_balancing issue, see issue #68
+    losses = unweighted_loss * weights
     print("Printing class weights for", args.dataset, "...")
     print(class_weights)
-
 
 else:
     losses = tf.nn.softmax_cross_entropy_with_logits(logits=network, labels=net_output)
 
 loss = tf.reduce_mean(losses)
-
-
 opt = tf.train.AdamOptimizer(args.learn_rate).minimize(loss, var_list=[var for var in tf.trainable_variables()])
 
 saver=tf.train.Saver(max_to_keep=1000)
@@ -242,7 +171,7 @@ avg_scores_per_epoch = []
 
 # Load the data
 print("Loading the data ...")
-train_input_names,train_output_names, val_input_names, val_output_names, test_input_names, test_output_names = prepare_data()
+train_input_names,train_output_names, val_input_names, val_output_names, test_input_names, test_output_names = helpers.prepare_data()
 
 ##-------------------------------------------------------------------------------------------------##
 if args.mode == "train":
@@ -259,7 +188,6 @@ if args.mode == "train":
     print("Learning Rate -->", args.learn_rate)
     print("Droplets -->", args.droplets)
     print("")
-
 
     print("Data Augmentation:")
     print("\tVertical Flip -->", args.v_flip)
@@ -306,7 +234,7 @@ if args.mode == "train":
                 output_image = load_image(train_output_names[id])
 
                 with tf.device('/cpu:0'):
-                    input_image, output_image = data_augmentation(input_image, output_image)
+                    input_image, output_image = helpers.data_augmentation(input_image, output_image)
 
 
                     # Prep the data. Make sure the labels are in one-hot format
@@ -363,14 +291,12 @@ if args.mode == "train":
             target=open("%s/%04d/val_scores.csv"%("checkpoints",epoch),'w')
             target.write("val_name, avg_accuracy, precision, recall, f1 score, mean iou, %s\n" % (class_names_string))
 
-
             scores_list = []
             class_scores_list = []
             precision_list = []
             recall_list = []
             f1_list = []
             iou_list = []
-
 
             # Do the validation on a small set of validation images
             for ind in val_indices:
@@ -443,26 +369,18 @@ if args.mode == "train":
 
     fig = plt.figure(figsize=(11,8))
     ax1 = fig.add_subplot(111)
-
-
     ax1.plot(range(args.num_epochs), avg_scores_per_epoch)
     ax1.set_title("Average validation accuracy vs epochs")
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Avg. val. accuracy")
-
-
     plt.savefig('accuracy_vs_epochs.png')
-
     plt.clf()
 
     ax1 = fig.add_subplot(111)
-
-
     ax1.plot(range(args.num_epochs), avg_loss_per_epoch)
     ax1.set_title("Average loss vs epochs")
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Current loss")
-
     plt.savefig('loss_vs_epochs.png')
 
 ##-------------------------------------------------------------------------------------------------##
@@ -476,7 +394,6 @@ elif args.mode == "test":
     print("")
 
     ## Usage: python3 main.py --mode test --dataset dataSet --crop_height 515 --crop_width 915 --model DeepLabV3-Res152
-
 
     # Create directories if needed
     if not os.path.isdir("%s"%("Val")):
@@ -529,7 +446,6 @@ elif args.mode == "test":
 
         cv2.imwrite("%s/%s_pred.png"%("Val", file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
         cv2.imwrite("%s/%s_gt.png"%("Val", file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
-
 
     target.close()
 
@@ -649,12 +565,6 @@ elif args.mode == "predict_folder":
 
         start1 = time.time()
 
-        img = cv2.imread(imagePath)
-        #imagePath2 = imagePath[:-8] + ".jpg"
-        #img2 = cv2.imread(imagePath2)
-        if img is None:
-            continue
-
         i = i + 1;
 
         #sys.stdout.write("Testing image " + imagePath)
@@ -662,6 +572,9 @@ elif args.mode == "predict_folder":
 
         # to get the right aspect ratio of the output
         loaded_image = load_image(imagePath)
+        if loaded_image is None:
+            continue
+
         height, width, channels = loaded_image.shape
         resize_height = int(height / (width / args.crop_width))
 
@@ -691,6 +604,14 @@ elif args.mode == "predict_folder":
         unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
         processed_image = PostProcessing.ProcessImage(unprocessed_image,args.removal)
         unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR) #needs to be re-generated
+
+        if resized_image is None:
+            continue
+        if processed_image is None:
+            continue
+        if unprocessed_image is None:
+            continue
+
         cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
