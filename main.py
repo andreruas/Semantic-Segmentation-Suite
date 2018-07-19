@@ -695,8 +695,8 @@ elif args.mode == "predict_folder":
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
 
-        combined_proc = cv2.addWeighted(resized_image,0.6,unprocessed_image,0.4,0)
-        combined_unproc = cv2.addWeighted(resized_image,0.6,processed_image,0.4,0)
+        combined_proc = cv2.addWeighted(resized_image,0.6,processed_image,0.4,0)
+        combined_unproc = cv2.addWeighted(resized_image,0.6,unprocessed_image,0.4,0)
 
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
