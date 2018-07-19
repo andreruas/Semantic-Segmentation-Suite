@@ -12,6 +12,7 @@ import subprocess
 
 import helpers
 import utils
+import PostProcessing
 
 import matplotlib
 matplotlib.use('Agg')
@@ -57,6 +58,8 @@ parser.add_argument('--v_flip', type=str2bool, default=False, help='Whether to r
 parser.add_argument('--brightness', type=float, default=None, help='Whether to randomly change the image brightness for data augmentation. Specifies the max bightness change as a factor between 0.0 and 1. For example, .1 represents a max brightness change of 10% (+-).')
 parser.add_argument('--rotation', type=float, default=None, help='Whether to randomly rotate the image for data augmentation. Specifies the max rotation angle in degrees.')
 parser.add_argument('--learn_rate', type=float, default=0.0001, help='Specify the learning rate.')
+parser.add_argument('--droplets', type=int, default=5, help='Whether or not droplets should be added to images')
+parser.add_argument('--removal', type=int, default=200, help='Whether or not the top of the image should be assumed sky')
 parser.add_argument('--model', type=str, default="FC-DenseNet56", help='The model you are using. Currently supports:\
     FC-DenseNet56, FC-DenseNet67, FC-DenseNet103, Encoder-Decoder, Encoder-Decoder-Skip, RefineNet-Res50, RefineNet-Res101, RefineNet-Res152, \
     FRRN-A, FRRN-B, MobileUNet, MobileUNet-Skip, PSPNet-Res50, PSPNet-Res101, PSPNet-Res152, GCN-Res50, GCN-Res101, GCN-Res152, DeepLabV3-Res50 \
@@ -97,27 +100,6 @@ def load_image(path):
     image = cv2.cvtColor(cv2.imread(path,-1), cv2.COLOR_BGR2RGB)
     return image
 
-def increase_brightness(img, value):
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)     # convert from BGR-->HSV
-    h, s, v = cv2.split(hsv)
-
-    lim = 255 - value #limiting overflow
-    v[v > lim] = 255
-    v[v <= lim] += value
-
-    final_hsv = cv2.merge((h, s, v))
-    img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
-    return img
-
-def decrease_brightness(img, value):
-    hsvImg = cv2.cvtColor(img, cv2.COLOR_BGR2HSV) # convert from BGR-->HSV
-    value = abs(value) # only allow positive values
-    factor = abs(1-value/100)
-    hsvImg[...,2] = hsvImg[...,2] * factor
-
-    img = cv2.cvtColor(hsvImg, cv2.COLOR_HSV2BGR)
-    return img
-
 def data_augmentation(input_image, output_image):
     # Data augmentation
     input_image, output_image = utils.random_crop(input_image, output_image, args.crop_height, args.crop_width)
@@ -128,15 +110,17 @@ def data_augmentation(input_image, output_image):
     if args.v_flip and random.randint(0,1):
         input_image = cv2.flip(input_image, 0)
         output_image = cv2.flip(output_image, 0)
+    if (int(args.droplets) > 0):
+        input_image = helpers.blur_circle_rand(input_image,int(args.droplets)) #adding simulated droplets
     if args.brightness:
         #factor = 1.0 + random.uniform(-1.0*args.brightness, args.brightness)
         #table = np.array([((i / 255.0) * factor) * 255 for i in np.arange(0, 256)]).astype(np.uint8)
         #input_image = cv2.LUT(input_image, table)
         value = int(random.uniform(-1.0*args.brightness, args.brightness)*100)
         if value > 0:
-            input_image = increase_brightness(input_image, abs(value))
+            input_image = helpers.increase_brightness(input_image, abs(value))
         if value < 0:
-            input_image = decrease_brightness(input_image, abs(value))
+            input_image = helpers.decrease_brightness(input_image, abs(value))
 
     if args.rotation:
         angle = random.uniform(-1*args.rotation, args.rotation)
@@ -273,6 +257,8 @@ if args.mode == "train":
     print("Num Classes -->", num_classes)
     print("Class Balancing -->", args.class_balancing)
     print("Learning Rate -->", args.learn_rate)
+    print("Droplets -->", args.droplets)
+    print("")
 
 
     print("Data Augmentation:")
@@ -598,7 +584,6 @@ elif args.mode == "predict":
 
     st = time.time()
     output_image = sess.run(network,feed_dict={net_input:input_image})
-
     run_time = time.time()-st
 
     output_image = np.array(output_image[0,:,:,:])
@@ -629,11 +614,19 @@ elif args.mode == "predict_folder":
     print("Crop Width -->", args.crop_width)
     print("Num Classes -->", num_classes)
     print("Image Folder -->", args.image_folder)
+    print("Removal -->", args.removal)
     print("")
 
-    # Create directories if needed
-    if not os.path.isdir("%s"%("Test")):
-            os.makedirs("%s"%("Test"))
+    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Unprocessed")):
+            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Unprocessed"))
+    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Processed")):
+            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Processed"))
+    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Original")):
+            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Original"))
+    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Combined_proc")):
+            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Combined_proc"))
+    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Combined_unproc")):
+            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Combined_unproc"))
 
     imageDir = args.image_folder #default is 'Predict'
     image_path_list = []
@@ -685,8 +678,6 @@ elif args.mode == "predict_folder":
         dur2 = dur2 + (end2-start2)
 
         start3 = time.time()
-
-
         run_time = time.time()-st
 
         output_image = np.array(output_image[0,:,:,:])
@@ -697,9 +688,20 @@ elif args.mode == "predict_folder":
 
         out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
         file_name = utils.filepath_to_name(imagePath)
-        cv2.imwrite("%s/%s_pred.png"%("Test", file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
+        unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
+        processed_image = PostProcessing.ProcessImage(unprocessed_image,args.removal)
+        unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR) #needs to be re-generated
+        cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image)
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
 
-        print("Wrote image " + "%s/%s_pred.png"%("Test", file_name))
+        combined_proc = cv2.addWeighted(resized_image,0.6,unprocessed_image,0.4,0)
+        combined_unproc = cv2.addWeighted(resized_image,0.6,processed_image,0.4,0)
+
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
+
+        print("Wrote image " + "%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name))
 
         end3 = time.time()
         dur3 = dur3 + (end3-start3)
@@ -710,6 +712,7 @@ elif args.mode == "predict_folder":
     avgSpeed2 = dur2/i
     avgSpeed3 = dur3/i
     FPS = 1/avgSpeed
+    FPS2 = round(1/avgSpeed2,1)
     print("")
     print("Finished!")
     print("")
@@ -717,7 +720,7 @@ elif args.mode == "predict_folder":
     print("Average inference speed: " + str(round(avgSpeed,3)) + " seconds per image. (" + str(round(FPS,1)) +  " FPS)")
     print("")
     print("Reading image average time: " + str(round(avgSpeed1,3)))
-    print("Predict image average time: " + str(round(avgSpeed2,3)))
+    print("Predict image average time: " + str(round(avgSpeed2,3)) + " (" + str(FPS2) +  " FPS)")
     print("Writing image average time: " + str(round(avgSpeed3,3)))
 
 

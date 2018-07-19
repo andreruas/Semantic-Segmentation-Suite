@@ -4,8 +4,77 @@ import itertools
 import operator
 import os, csv
 import tensorflow as tf
+import random
 
 import time, datetime
+
+##----------------- DATA AUGMENTATION HELPER FUNCTIONS -------------------------------------------------------------------##
+
+def increase_brightness(img, value):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)     # convert from BGR-->HSV
+    h, s, v = cv2.split(hsv)
+
+    lim = 255 - value #limiting overflow
+    v[v > lim] = 255
+    v[v <= lim] += value
+
+    final_hsv = cv2.merge((h, s, v))
+    img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
+    return img
+
+def decrease_brightness(img, value):
+    hsvImg = cv2.cvtColor(img, cv2.COLOR_BGR2HSV) # convert from BGR-->HSV
+    value = abs(value) # only allow positive values
+    factor = abs(1-value/100)
+    hsvImg[...,2] = hsvImg[...,2] * factor
+
+    img = cv2.cvtColor(hsvImg, cv2.COLOR_HSV2BGR)
+    return img
+
+def blur_single_circle(image,x,y,w,blur):
+    # create a temp image and a mask to work on
+    tempImg = image.copy()
+    maskShape = (image.shape[0], image.shape[1], 1)
+    mask = np.full(maskShape, 0, dtype=np.uint8)
+    w = int(w)
+    h = w
+
+    tempImg [y-h:y+h, x-w:x+w] = cv2.blur(tempImg [y-h:y+h, x-w:x+w] ,(blur,blur))
+    center = (x,y)
+    cv2.circle(tempImg , center, h, (255), 1)
+    cv2.circle(mask , center, h, (255), -1)
+
+    # oustide of the loop, apply the mask and save
+    mask_inv = cv2.bitwise_not(mask)
+    img1_bg = cv2.bitwise_and(image,image,mask = mask_inv)
+    img2_fg = cv2.bitwise_and(tempImg,tempImg,mask = mask)
+    dst = cv2.add(img1_bg,img2_fg)
+    return dst
+
+def blur_circle(image,x,y,w,blur):
+    #blurring several circles so it doesn't have a distinct edge
+    dst = blur_single_circle(image,x,y,w*.4,blur)
+    dst = blur_single_circle(dst,x,y,w*.6,int(blur*.7))
+    dst = blur_single_circle(dst,x,y,w*.8,int(blur*.5))
+    dst = blur_single_circle(dst,x,y,w,int(blur*.2))
+    return dst
+
+def blur_circle_rand(image, drops):
+    blur = 10
+    drops = random.randint(0,drops)
+    if (drops == 0):
+        return image
+
+    for i in range(0,drops):
+        w = random.randint(15,40)
+        x = random.randint(w+1,image.shape[1]-w-1)
+        y = random.randint(w+1,image.shape[0]-w-1)
+        dst = blur_circle(image,x,y,w,blur)
+        image = dst
+
+    return dst
+
+##------------------------------------------------------------------------------------------------------------------------##
 
 def get_label_info(csv_path):
     """
@@ -14,7 +83,7 @@ def get_label_info(csv_path):
 
     # Arguments
         csv_path: The file path of the class dictionairy
-        
+
     # Returns
         Two lists: one for the class names and the other for the label values
     """
@@ -42,7 +111,7 @@ def one_hot_it(label, label_values):
     # Arguments
         label: The 2D array segmentation image label
         label_values
-        
+
     # Returns
         A 2D array with the same width and hieght as the input, but
         with a depth size of num_classes
@@ -72,7 +141,7 @@ def one_hot_it(label, label_values):
     # print("Time 2 = ", time.time() - st)
 
     return semantic_map
-    
+
 def reverse_one_hot(image):
     """
     Transform a 2D array in one-hot format (depth is num_classes),
@@ -80,11 +149,11 @@ def reverse_one_hot(image):
     the classified class key.
 
     # Arguments
-        image: The one-hot format image 
-        
+        image: The one-hot format image
+
     # Returns
         A 2D array with the same width and hieght as the input, but
-        with a depth size of 1, where each pixel value is the classified 
+        with a depth size of 1, where each pixel value is the classified
         class key.
     """
     # w = image.shape[0]
@@ -107,7 +176,7 @@ def colour_code_segmentation(image, label_values):
     # Arguments
         image: single channel array where each value represents the class key.
         label_values
-        
+
     # Returns
         Colour coded image for segmentation visualization
     """
@@ -119,7 +188,7 @@ def colour_code_segmentation(image, label_values):
     # for i in range(0, w):
     #     for j in range(0, h):
     #         x[i, j, :] = colour_codes[int(image[i, j])]
-    
+
     colour_codes = np.array(label_values)
     x = colour_codes[image.astype(int)]
 

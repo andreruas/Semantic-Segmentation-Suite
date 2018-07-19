@@ -5,6 +5,8 @@ checkpoints/
 Test/
 accuracy_vs_epochs.png
 loss_vs_epochs.png
+logs/
+combined6/
 colour_codes.csv
 CamVid_train.tfrecords
 tfrecords.py
