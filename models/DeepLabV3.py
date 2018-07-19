@@ -27,8 +27,7 @@ def ConvBlock(inputs, n_filters, kernel_size=[3, 3]):
     net = tf.nn.relu(slim.batch_norm(net, fused=True))
     return net
 
-#def AtrousSpatialPyramidPoolingModule(inputs, depth=256):
-def AtrousSpatialPyramidPoolingModule(inputs, depth=64):
+def AtrousSpatialPyramidPoolingModule(inputs, depth=256):
     """
 
     ASPP consists of (a) one 1×1 convolution and three 3×3 convolutions with rates = (6, 12, 18) when output stride = 16
@@ -63,11 +62,11 @@ def AtrousSpatialPyramidPoolingModule(inputs, depth=64):
 
 def build_deeplabv3(inputs, num_classes, preset_model='DeepLabV3-Res50', weight_decay=1e-5, is_training=True, pretrained_dir="models"):
     """
-    Builds the DeepLabV3 model. 
+    Builds the DeepLabV3 model.
 
     Arguments:
-      inputs: The input tensor= 
-      preset_model: Which model you want to use. Select which ResNet model to use for feature extraction 
+      inputs: The input tensor=
+      preset_model: Which model you want to use. Select which ResNet model to use for feature extraction
       num_classes: Number of classes
 
     Returns:
@@ -101,7 +100,7 @@ def build_deeplabv3(inputs, num_classes, preset_model='DeepLabV3-Res50', weight_
     net = AtrousSpatialPyramidPoolingModule(end_points['pool4'])
 
     net = Upsampling(net, label_size)
-    
+
     net = slim.conv2d(net, num_classes, [1, 1], activation_fn=None, scope='logits')
 
     return net, init_fn

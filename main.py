@@ -165,6 +165,7 @@ num_classes = len(label_values)
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess=tf.Session(config=config)
+train_writer = tf.summary.FileWriter( './logs/1/train ', sess.graph)
 
 # Get the selected model.
 # Some of them require pre-trained ResNet
@@ -231,6 +232,7 @@ if args.class_balancing:
 
 else:
     losses = tf.nn.softmax_cross_entropy_with_logits(logits=network, labels=net_output)
+
 loss = tf.reduce_mean(losses)
 
 
@@ -347,6 +349,7 @@ if args.mode == "train":
             # Do the training
             _,current=sess.run([opt,loss],feed_dict={net_input:input_image_batch,net_output:output_image_batch})
             current_losses.append(current)
+
             cnt = cnt + args.batch_size
             if cnt % 20 == 0:
                 string_print = "Epoch = %d Count = %d Current_Loss = %.4f Time = %.2f"%(epoch,cnt,current,time.time()-st)
