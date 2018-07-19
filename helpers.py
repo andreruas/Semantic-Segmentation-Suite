@@ -5,8 +5,9 @@ import operator
 import os, csv
 import tensorflow as tf
 import random
-
 import time, datetime
+
+import utils
 
 ##----------------- DATA AUGMENTATION HELPER FUNCTIONS -------------------------------------------------------------------##
 
@@ -198,7 +199,7 @@ def colour_code_segmentation(image, label_values):
 ## The below functions were moved out of main to de-clutter that file
 
 # Get a list of the training, validation, and testing file paths
-def prepare_data(dataset_dir=args.dataset):
+def prepare_data(dataset_dir):
     train_input_names=[]
     train_output_names=[]
     val_input_names=[]
@@ -226,27 +227,27 @@ def prepare_data(dataset_dir=args.dataset):
     train_input_names.sort(),train_output_names.sort(), val_input_names.sort(), val_output_names.sort(), test_input_names.sort(), test_output_names.sort()
     return train_input_names,train_output_names, val_input_names, val_output_names, test_input_names, test_output_names
 
-def data_augmentation(input_image, output_image):
+def data_augmentation(input_image, output_image, crop_height, crop_width, h_flip, v_flip, droplets, brightness, rotation, ):
     # Data augmentation
-    input_image, output_image = utils.random_crop(input_image, output_image, args.crop_height, args.crop_width)
+    input_image, output_image = utils.random_crop(input_image, output_image, crop_height, crop_width)
 
-    if args.h_flip and random.randint(0,1):
+    if h_flip and random.randint(0,1):
         input_image = cv2.flip(input_image, 1)
         output_image = cv2.flip(output_image, 1)
-    if args.v_flip and random.randint(0,1):
+    if v_flip and random.randint(0,1):
         input_image = cv2.flip(input_image, 0)
         output_image = cv2.flip(output_image, 0)
-    if (int(args.droplets) > 0):
-        input_image = blur_circle_rand(input_image,int(args.droplets)) #adding simulated droplets
-    if args.brightness:
-        value = int(random.uniform(-1.0*args.brightness, args.brightness)*100)
+    if (int(droplets) > 0):
+        input_image = blur_circle_rand(input_image,int(droplets)) #adding simulated droplets
+    if brightness:
+        value = int(random.uniform(-1.0*brightness, brightness)*100)
         if value > 0:
             input_image = increase_brightness(input_image, abs(value))
         if value < 0:
             input_image = decrease_brightness(input_image, abs(value))
-    if args.rotation:
-        angle = random.uniform(-1*args.rotation, args.rotation)
-    if args.rotation:
+    if rotation:
+        angle = random.uniform(-1*rotation, rotation)
+    if rotation:
         M = cv2.getRotationMatrix2D((input_image.shape[1]//2, input_image.shape[0]//2), angle, 1.0)
         input_image = cv2.warpAffine(input_image, M, (input_image.shape[1], input_image.shape[0]), flags=cv2.INTER_NEAREST)
         output_image = cv2.warpAffine(output_image, M, (output_image.shape[1], output_image.shape[0]), flags=cv2.INTER_NEAREST)

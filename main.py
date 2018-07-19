@@ -171,7 +171,7 @@ avg_scores_per_epoch = []
 
 # Load the data
 print("Loading the data ...")
-train_input_names,train_output_names, val_input_names, val_output_names, test_input_names, test_output_names = helpers.prepare_data()
+train_input_names,train_output_names, val_input_names, val_output_names, test_input_names, test_output_names = helpers.prepare_data(args.dataset)
 
 ##-------------------------------------------------------------------------------------------------##
 if args.mode == "train":
