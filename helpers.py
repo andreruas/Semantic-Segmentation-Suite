@@ -54,20 +54,20 @@ def blur_single_circle(image,x,y,w,blur):
 
 def blur_circle(image,x,y,w,blur):
     #blurring several circles so it doesn't have a distinct edge
-    dst = blur_single_circle(image,x,y,w*.4,blur)
-    dst = blur_single_circle(dst,x,y,w*.6,int(blur*.7))
-    dst = blur_single_circle(dst,x,y,w*.8,int(blur*.5))
+    dst = blur_single_circle(image,x,y,w*.7,blur)
+    dst = blur_single_circle(dst,x,y,w*.8,int(blur*.7))
+    dst = blur_single_circle(dst,x,y,w*.9,int(blur*.5))
     dst = blur_single_circle(dst,x,y,w,int(blur*.2))
     return dst
 
-def blur_circle_rand(image, drops):
+def blur_circle_rand(image, droplets_num, droplets_size):
     blur = 10
-    drops = random.randint(0,drops)
+    drops = random.randint(0,droplets_num)
     if (drops == 0):
         return image
 
-    for i in range(0,drops):
-        w = random.randint(15,40)
+    for i in range(0,droplets_num):
+        w = random.randint(15,droplets_size)
         x = random.randint(w+1,image.shape[1]-w-1)
         y = random.randint(w+1,image.shape[0]-w-1)
         dst = blur_circle(image,x,y,w,blur)
@@ -227,7 +227,7 @@ def prepare_data(dataset_dir):
     train_input_names.sort(),train_output_names.sort(), val_input_names.sort(), val_output_names.sort(), test_input_names.sort(), test_output_names.sort()
     return train_input_names,train_output_names, val_input_names, val_output_names, test_input_names, test_output_names
 
-def data_augmentation(input_image, output_image, crop_height, crop_width, h_flip, v_flip, droplets, brightness, rotation, ):
+def data_augmentation(input_image, output_image, crop_height, crop_width, h_flip, v_flip, droplets_num, droplets_size, brightness, rotation):
     # Data augmentation
     input_image, output_image = utils.random_crop(input_image, output_image, crop_height, crop_width)
 
@@ -237,8 +237,8 @@ def data_augmentation(input_image, output_image, crop_height, crop_width, h_flip
     if v_flip and random.randint(0,1):
         input_image = cv2.flip(input_image, 0)
         output_image = cv2.flip(output_image, 0)
-    if (int(droplets) > 0):
-        input_image = blur_circle_rand(input_image,int(droplets)) #adding simulated droplets
+    if (droplets_num > 0):
+        input_image = blur_circle_rand(input_image,droplets_num, droplets_size) #adding simulated droplets
     if brightness:
         value = int(random.uniform(-1.0*brightness, brightness)*100)
         if value > 0:

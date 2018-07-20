@@ -42,6 +42,8 @@ parser.add_argument('--validation_step', type=int, default=1, help='How often to
 parser.add_argument('--class_balancing', type=str2bool, default=False, help='Whether to use median frequency class weights to balance the classes in the loss')
 parser.add_argument('--image', type=str, default=None, help='The image you want to predict on. Only valid in "predict" mode.')
 parser.add_argument('--image_folder', type=str, default="Predict", help='The directory of images you want to predict on. Only valid in "predict_folder" mode.')
+parser.add_argument('--ratio_lock', type=str2bool, default=True, help='During prediction, whether or not to preserve aspect ratio for output images')
+parser.add_argument('--pred_center_crop', type=str2bool, default=True, help='During prediction, whether or not to center each crop')
 parser.add_argument('--continue_training', type=str2bool, default=False, help='Whether to continue training from a checkpoint')
 parser.add_argument('--dataset', type=str, default="CamVid", help='Dataset you are using.')
 parser.add_argument('--crop_height', type=int, default=512, help='Height of cropped input image to network')
@@ -53,7 +55,8 @@ parser.add_argument('--v_flip', type=str2bool, default=False, help='Whether to r
 parser.add_argument('--brightness', type=float, default=None, help='Whether to randomly change the image brightness for data augmentation. Specifies the max bightness change as a factor between 0.0 and 1. For example, .1 represents a max brightness change of 10% (+-).')
 parser.add_argument('--rotation', type=float, default=None, help='Whether to randomly rotate the image for data augmentation. Specifies the max rotation angle in degrees.')
 parser.add_argument('--learn_rate', type=float, default=0.0001, help='Specify the learning rate.')
-parser.add_argument('--droplets', type=int, default=5, help='Whether or not droplets should be added to images')
+parser.add_argument('--droplets_num', type=int, default=5, help='How many droplets should be added to images')
+parser.add_argument('--droplets_size', type=int, default=40, help='How large should droplets be')
 parser.add_argument('--removal', type=int, default=200, help='Whether or not the top of the image should be assumed sky')
 parser.add_argument('--model', type=str, default="FC-DenseNet56", help='The model you are using. Currently supports:\
     FC-DenseNet56, FC-DenseNet67, FC-DenseNet103, Encoder-Decoder, Encoder-Decoder-Skip, RefineNet-Res50, RefineNet-Res101, RefineNet-Res152, \
@@ -63,6 +66,7 @@ args = parser.parse_args()
 
 def load_image(path):
     image = cv2.cvtColor(cv2.imread(path,-1), cv2.COLOR_BGR2RGB)
+    #image = cv2.imread(path,-1)
     return image
 
 def download_checkpoints(model_name):
@@ -186,7 +190,6 @@ if args.mode == "train":
     print("Num Classes -->", num_classes)
     print("Class Balancing -->", args.class_balancing)
     print("Learning Rate -->", args.learn_rate)
-    print("Droplets -->", args.droplets)
     print("")
 
     print("Data Augmentation:")
@@ -194,6 +197,8 @@ if args.mode == "train":
     print("\tHorizontal Flip -->", args.h_flip)
     print("\tBrightness Alteration -->", args.brightness)
     print("\tRotation -->", args.rotation)
+    print("\tDroplets # -->", args.droplets_num)
+    print("\tDroplets Size -->", args.droplets_size)
     print("")
 
     avg_loss_per_epoch = []
@@ -234,8 +239,7 @@ if args.mode == "train":
                 output_image = load_image(train_output_names[id])
 
                 with tf.device('/cpu:0'):
-                    input_image, output_image = helpers.data_augmentation(input_image, output_image)
-
+                    input_image, output_image = helpers.data_augmentation(input_image, output_image, args.crop_height, args.crop_width, args.h_flip, args.v_flip, args.droplets_num, args.droplets_size, args.brightness, args.rotation)
 
                     # Prep the data. Make sure the labels are in one-hot format
                     input_image = np.float32(input_image) / 255.0
@@ -308,7 +312,6 @@ if args.mode == "train":
                 # st = time.time()
 
                 output_image = sess.run(network,feed_dict={net_input:input_image})
-
 
                 output_image = np.array(output_image[0,:,:,:])
                 output_image = helpers.reverse_one_hot(output_image)
@@ -531,6 +534,8 @@ elif args.mode == "predict_folder":
     print("Num Classes -->", num_classes)
     print("Image Folder -->", args.image_folder)
     print("Removal -->", args.removal)
+    print("Aspect Ratio Lock -->", args.ratio_lock)
+    print("Pred Center Crop -->", args.pred_center_crop)
     print("")
 
     if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Unprocessed")):
@@ -576,17 +581,28 @@ elif args.mode == "predict_folder":
             continue
 
         height, width, channels = loaded_image.shape
-        resize_height = int(height / (width / args.crop_width))
 
-        resized_image =cv2.resize(loaded_image, (args.crop_width, resize_height))
+        if(args.ratio_lock):
+            resize_height = int(height / (width / args.crop_width))
+            resized_image =cv2.resize(loaded_image, (args.crop_width, resize_height))
+        else:
+            if(args.pred_center_crop):
+                x_pad = int((loaded_image.shape[1]-1-args.crop_width)/2)
+                y_pad = int((loaded_image.shape[0]-1-args.crop_height)/2)
+                resized_image = loaded_image[y_pad:args.crop_height+y_pad, x_pad:args.crop_width+x_pad]
+            else:
+                resized_image = loaded_image[0:args.crop_height, 0:args.crop_width]
+
         input_image = np.expand_dims(np.float32(resized_image[:args.crop_height, :args.crop_width]),axis=0)/255.0
+        resized_image_copy = resized_image
+        resized_image_vis = cv2.cvtColor(np.uint8(resized_image_copy), cv2.COLOR_RGB2BGR)
 
         st = time.time()
         end1 = time.time()
         dur1 = dur1 + (end1-start1)
 
         start2 = time.time()
-        output_image = sess.run(network,feed_dict={net_input:input_image})
+        output_image = sess.run(network,feed_dict={net_input:input_image}) # GENERATING INPUT
         end2 = time.time()
         dur2 = dur2 + (end2-start2)
 
@@ -601,25 +617,25 @@ elif args.mode == "predict_folder":
 
         out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
         file_name = utils.filepath_to_name(imagePath)
-        unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
-        processed_image = PostProcessing.ProcessImage(unprocessed_image,args.removal)
+        #unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
+        #processed_image = PostProcessing.ProcessImage(cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR),args.removal)
         unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR) #needs to be re-generated
 
         if resized_image is None:
             continue
-        if processed_image is None:
+        #if processed_image is None:
             continue
         if unprocessed_image is None:
             continue
 
-        cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image)
+        cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image_vis)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
+        #cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
 
-        combined_proc = cv2.addWeighted(resized_image,0.6,processed_image,0.4,0)
+        #combined_proc = cv2.addWeighted(resized_image,0.6,processed_image,0.4,0)
         combined_unproc = cv2.addWeighted(resized_image,0.6,unprocessed_image,0.4,0)
 
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
+        #cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
 
         print("Wrote image " + "%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name))
