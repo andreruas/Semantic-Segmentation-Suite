@@ -86,7 +86,6 @@ num_classes = len(label_values)
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess=tf.Session(config=config)
-train_writer = tf.summary.FileWriter( './logs/1/train ', sess.graph)
 
 # Get the selected model.
 # Some of them require pre-trained ResNet
