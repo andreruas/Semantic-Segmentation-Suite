@@ -42,7 +42,7 @@ parser.add_argument('--validation_step', type=int, default=1, help='How often to
 parser.add_argument('--class_balancing', type=str2bool, default=False, help='Whether to use median frequency class weights to balance the classes in the loss')
 parser.add_argument('--image', type=str, default=None, help='The image you want to predict on. Only valid in "predict" mode.')
 parser.add_argument('--image_folder', type=str, default="Predict", help='The directory of images you want to predict on. Only valid in "predict_folder" mode.')
-parser.add_argument('--ratio_lock', type=str2bool, default=True, help='During prediction, whether or not to preserve aspect ratio for output images')
+parser.add_argument('--ratio_lock', type=str2bool, default=False, help='During prediction, whether or not to preserve aspect ratio for output images')
 parser.add_argument('--pred_center_crop', type=str2bool, default=True, help='During prediction, whether or not to center each crop')
 parser.add_argument('--continue_training', type=str2bool, default=False, help='Whether to continue training from a checkpoint')
 parser.add_argument('--dataset', type=str, default="CamVid", help='Dataset you are using.')
@@ -584,12 +584,15 @@ elif args.mode == "predict_folder":
 
         if(args.ratio_lock):
             resize_height = int(height / (width / args.crop_width))
-            resized_image =cv2.resize(loaded_image, (args.crop_width, resize_height))
+            resized_image = cv2.resize(loaded_image, (args.crop_width, resize_height))
         else:
             if(args.pred_center_crop):
                 x_pad = int((loaded_image.shape[1]-1-args.crop_width)/2)
                 y_pad = int((loaded_image.shape[0]-1-args.crop_height)/2)
                 resized_image = loaded_image[y_pad:args.crop_height+y_pad, x_pad:args.crop_width+x_pad]
+                resized_image = resized_image[0:args.crop_height, 0:args.crop_width]
+                #height, width, channels = resized_image.shape
+                #print("Original H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
             else:
                 resized_image = loaded_image[0:args.crop_height, 0:args.crop_width]
 
@@ -617,25 +620,37 @@ elif args.mode == "predict_folder":
 
         out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
         file_name = utils.filepath_to_name(imagePath)
-        #unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
-        #processed_image = PostProcessing.ProcessImage(cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR),args.removal)
+        unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
+        processed_image = PostProcessing.ProcessImage(cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR),args.removal)
         unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR) #needs to be re-generated
 
-        if resized_image is None:
+        if resized_image_vis is None:
+            print("WARNING: image not found (1)")
             continue
-        #if processed_image is None:
+        if processed_image is None:
+            print("WARNING: image not found (2)")
             continue
         if unprocessed_image is None:
+            print("WARNING: image not found (3)")
             continue
 
         cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image_vis)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
-        #cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
 
-        #combined_proc = cv2.addWeighted(resized_image,0.6,processed_image,0.4,0)
-        combined_unproc = cv2.addWeighted(resized_image,0.6,unprocessed_image,0.4,0)
+        # height, width, channels = resized_image_vis.shape
+        # print("Original H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
+        #
+        # height, width, channels = processed_image.shape
+        # print("Processed H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
+        #
+        # height, width, channels = unprocessed_image.shape
+        # print("Unprocessed H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
 
-        #cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
+        combined_proc = cv2.addWeighted(resized_image_vis,0.6,processed_image,0.4,0)
+        combined_unproc = cv2.addWeighted(resized_image_vis,0.6,unprocessed_image,0.4,0)
+
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
 
         print("Wrote image " + "%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name))

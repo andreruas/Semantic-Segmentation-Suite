@@ -69,7 +69,6 @@ def remove_contours_surrounded(contours, img, img_copy, mask, sensitivity):
         #if (cv2.contourArea(c) < sensitivity): # TODO: this is a band-aid solution to stop rider removal
         if (output_color != (0,0,255)):
             cv2.drawContours(mask, [c], -1, output_color, -1)
-
     return mask
 
 def remove_contours_small(contours, img, img_copy, mask):
@@ -111,7 +110,7 @@ def remove_false_positives(contours, img, img_copy, mask, sensitivity):
             if (on_horiz(c, img, img_copy)):
                 cv2.drawContours(mask, [c], -1, (0,255,0), -1)
                 #print("Removed false positive.")
-        return mask
+    return mask
 
 #finding the horizon line using green mask (bottom to top)
 def find_horiz_bt(green_mask, x,img):
@@ -237,8 +236,8 @@ def ProcessImage(img,removal):
     # cv2.imshow("input",img)
     # cv2.imshow("output",mask)
     # cv2.waitKey(0)
-    return mask
 
+    return mask
 
 
 
