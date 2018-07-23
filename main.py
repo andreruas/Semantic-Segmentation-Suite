@@ -44,6 +44,7 @@ parser.add_argument('--image', type=str, default=None, help='The image you want 
 parser.add_argument('--image_folder', type=str, default="Predict", help='The directory of images you want to predict on. Only valid in "predict_folder" mode.')
 parser.add_argument('--ratio_lock', type=str2bool, default=False, help='During prediction, whether or not to preserve aspect ratio for output images')
 parser.add_argument('--pred_center_crop', type=str2bool, default=True, help='During prediction, whether or not to center each crop')
+parser.add_argument('--pred_downsample', type=str2bool, default=True, help='During prediction, whether to downsample or crop')
 parser.add_argument('--continue_training', type=str2bool, default=False, help='Whether to continue training from a checkpoint')
 parser.add_argument('--dataset', type=str, default="CamVid", help='Dataset you are using.')
 parser.add_argument('--crop_height', type=int, default=512, help='Height of cropped input image to network')
@@ -536,6 +537,7 @@ elif args.mode == "predict_folder":
     print("Removal -->", args.removal)
     print("Aspect Ratio Lock -->", args.ratio_lock)
     print("Pred Center Crop -->", args.pred_center_crop)
+    print("Pred Downsample -->", args.pred_downsample)
     print("")
 
     if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Unprocessed")):
@@ -582,9 +584,12 @@ elif args.mode == "predict_folder":
 
         height, width, channels = loaded_image.shape
 
-        if(args.ratio_lock):
-            resize_height = int(height / (width / args.crop_width))
-            resized_image = cv2.resize(loaded_image, (args.crop_width, resize_height))
+        if(args.pred_downsample):
+            if(args.ratio_lock):
+                resize_height = int(height / (width / args.crop_width))
+                resized_image = cv2.resize(loaded_image, (args.crop_width, resize_height))
+            else:
+                resized_image = cv2.resize(loaded_image, (args.crop_width, args.crop_height))
         else:
             if(args.pred_center_crop):
                 x_pad = int((loaded_image.shape[1]-1-args.crop_width)/2)
