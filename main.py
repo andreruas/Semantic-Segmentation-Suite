@@ -59,6 +59,7 @@ parser.add_argument('--learn_rate', type=float, default=0.0001, help='Specify th
 parser.add_argument('--droplets_num', type=int, default=5, help='How many droplets should be added to images')
 parser.add_argument('--droplets_size', type=int, default=40, help='How large should droplets be')
 parser.add_argument('--removal', type=int, default=200, help='Whether or not the top of the image should be assumed sky')
+parser.add_argument('--theta', type=float, default=1.5, help='Controls how flat the probabilities will be (for visualization only). Higher is more binary.')
 parser.add_argument('--model', type=str, default="FC-DenseNet56", help='The model you are using. Currently supports:\
     FC-DenseNet56, FC-DenseNet67, FC-DenseNet103, Encoder-Decoder, Encoder-Decoder-Skip, RefineNet-Res50, RefineNet-Res101, RefineNet-Res152, \
     FRRN-A, FRRN-B, MobileUNet, MobileUNet-Skip, PSPNet-Res50, PSPNet-Res101, PSPNet-Res152, GCN-Res50, GCN-Res101, GCN-Res152, DeepLabV3-Res50 \
@@ -630,7 +631,7 @@ elif args.mode == "predict_folder":
         #print("------------")
 
         #find the probabilities for each pixel
-        sf = utils.softmax(output_image, theta = 1.55, axis = 2)
+        sf = utils.softmax(output_image, theta = args.theta, axis = 2)
 
         #print(sf)
         sf_first = sf[:,:,0]
@@ -674,7 +675,6 @@ elif args.mode == "predict_folder":
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*90)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*90)
 
-
         # height, width, channels = resized_image_vis.shape
         # print("Original H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
         #
@@ -690,6 +690,7 @@ elif args.mode == "predict_folder":
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
 
+        print("Generating Predictions for: " + file_name)
         end3 = time.time()
         dur3 = dur3 + (end3-start3)
 
