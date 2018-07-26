@@ -67,34 +67,34 @@ def build_mobile_unet(inputs, preset_model, num_classes):
 	net = slim.pool(net, [2, 2], stride=[2, 2], pooling_type='MAX')
 	skip_3 = net
 
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = slim.pool(net, [2, 2], stride=[2, 2], pooling_type='MAX')
-	skip_4 = net
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = slim.pool(net, [2, 2], stride=[2, 2], pooling_type='MAX')
+	# skip_4 = net
 
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = slim.pool(net, [2, 2], stride=[2, 2], pooling_type='MAX')
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = slim.pool(net, [2, 2], stride=[2, 2], pooling_type='MAX')
 
 
 	#####################
-	# Upsampling path #
-	#####################
-	net = conv_transpose_block(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 512)
-	if has_skip:
-		net = tf.add(net, skip_4)
+	# # Upsampling path #
+	# #####################
+	# net = conv_transpose_block(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# if has_skip:
+	# 	net = tf.add(net, skip_4)
 
-	net = conv_transpose_block(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 512)
-	net = DepthwiseSeparableConvBlock(net, 256)
-	if has_skip:
-		net = tf.add(net, skip_3)
+	# net = conv_transpose_block(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 512)
+	# net = DepthwiseSeparableConvBlock(net, 256)
+	# if has_skip:
+	# 	net = tf.add(net, skip_3)
 
 	net = conv_transpose_block(net, 256)
 	net = DepthwiseSeparableConvBlock(net, 256)

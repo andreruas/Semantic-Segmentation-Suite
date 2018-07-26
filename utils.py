@@ -137,11 +137,11 @@ def lovasz_softmax(probas, labels, only_present=True, per_image=False, ignore=No
 def random_crop(image, label, crop_height, crop_width):
     if (image.shape[0] != label.shape[0]) or (image.shape[1] != label.shape[1]):
         raise Exception('Image and label must have the same dimensions!')
-        
+
     if (crop_width <= image.shape[1]) and (crop_height <= image.shape[0]):
         x = random.randint(0, image.shape[1]-crop_width)
         y = random.randint(0, image.shape[0]-crop_height)
-        
+
         if len(label.shape) == 3:
             return image[y:y+crop_height, x:x+crop_width, :], label[y:y+crop_height, x:x+crop_width, :]
         else:
@@ -169,7 +169,7 @@ def compute_class_accuracies(pred, label, num_classes):
         if pred[i] == label[i]:
             count[int(pred[i])] = count[int(pred[i])] + 1.0
 
-    # If there are no pixels from a certain class in the GT, 
+    # If there are no pixels from a certain class in the GT,
     # it returns NAN because of divide by zero
     # Replace the nans with a 1.0.
     accuracies = []
@@ -217,7 +217,7 @@ def evaluate_segmentation(pred, label, num_classes, score_averaging="weighted"):
 
     return global_accuracy, class_accuracies, prec, rec, f1, iou
 
-    
+
 def compute_class_weights(labels_dir, label_values):
     '''
     Arguments:
@@ -232,7 +232,7 @@ def compute_class_weights(labels_dir, label_values):
 
     num_classes = len(label_values)
 
-    class_pixels = np.zeros(num_classes) 
+    class_pixels = np.zeros(num_classes)
 
     total_pixels = 0.0
 
@@ -244,7 +244,7 @@ def compute_class_weights(labels_dir, label_values):
             class_map = class_map.astype(np.float32)
             class_pixels[index] += np.sum(class_map)
 
-            
+
         print("\rProcessing image: " + str(n) + " / " + str(len(image_files)), end="")
         sys.stdout.flush()
 
@@ -265,3 +265,56 @@ def memory():
     py = psutil.Process(pid)
     memoryUse = py.memory_info()[0]/2.**30  # Memory use in GB
     print('Memory usage in GBs:', memoryUse)
+
+def softmax(X, theta = 1.55, axis = None):
+    """
+    Compute the softmax of each element along an axis of X.
+
+    Parameters
+    ----------
+    X: ND-Array. Probably should be floats.
+    theta (optional): float parameter, used as a multiplier
+        prior to exponentiation. Default = 1.0
+    axis (optional): axis to compute values along. Default is the
+        first non-singleton axis.
+
+    Returns an array the same size as X. The result will sum to 1
+    along the specified axis.
+
+    I recommend using theta = 1.55, as it agrees with hand-calculations for
+    softmax, and doesn't flatten out probabilities at all.
+
+    Usage for 2D-array
+        softmax over rows: softmax(X, theta = 1.55, axis = 0)
+        softmax over cols: softmax(X, theta = 1.55, axis = 1)
+
+    Usage for 3D-array
+        softmax over each 3D 'pixel': softmax(X, theta = 1.55, axis = 0)
+    """
+
+    # make X at least 2d
+    y = np.atleast_2d(X)
+
+    # find axis
+    if axis is None:
+        axis = next(j[0] for j in enumerate(y.shape) if j[1] > 1)
+
+    # multiply y against the theta parameter,
+    y = y * float(theta)
+
+    # subtract the max for numerical stability
+    y = y - np.expand_dims(np.max(y, axis = axis), axis)
+
+    # exponentiate y
+    y = np.exp(y)
+
+    # take the sum along the specified axis
+    ax_sum = np.expand_dims(np.sum(y, axis = axis), axis)
+
+    # finally: divide elementwise
+    p = y / ax_sum
+
+    # flatten if X was 1D
+    if len(X.shape) == 1: p = p.flatten()
+
+    return p

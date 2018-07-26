@@ -550,6 +550,8 @@ elif args.mode == "predict_folder":
             os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Combined_proc"))
     if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Combined_unproc")):
             os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Combined_unproc"))
+    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Probabilities")):
+            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Probabilities"))
 
     imageDir = args.image_folder #default is 'Predict'
     image_path_list = []
@@ -618,6 +620,26 @@ elif args.mode == "predict_folder":
         run_time = time.time()-st
 
         output_image = np.array(output_image[0,:,:,:])
+
+        print("------------")
+        print(output_image.shape)
+        print("------------")
+        print(output_image)
+        print("------------")
+
+        #find the probabilities for each pixel
+        sf = utils.softmax(output_image, theta = 1.55, axis = 2)
+
+        print(sf)
+
+        sf_m = np.amax(sf, 2)
+        print("------------")
+        print(sf_m)
+        print("------------")
+
+        #find the max probabilities for each pixel
+        #sf = helpers.reverse_one_hot(sf)
+
         output_image = helpers.reverse_one_hot(output_image)
 
         # this was generalized to accept any dataset
@@ -628,6 +650,9 @@ elif args.mode == "predict_folder":
         unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
         processed_image = PostProcessing.ProcessImage(cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR),args.removal)
         unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR) #needs to be re-generated
+
+        unprocessed_image_sf = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_BGR2GRAY)
+        unprocessed_image_sf_o = unprocessed_image_sf * sf_m
 
         if resized_image_vis is None:
             print("WARNING: image not found (1)")
@@ -642,6 +667,8 @@ elif args.mode == "predict_folder":
         cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image_vis)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),unprocessed_image_sf)
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*90)
 
         # height, width, channels = resized_image_vis.shape
         # print("Original H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
