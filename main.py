@@ -552,6 +552,8 @@ elif args.mode == "predict_folder":
             os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Combined_unproc"))
     if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Probabilities")):
             os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Probabilities"))
+    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Probabilities_First")):
+            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Probabilities_First"))
 
     imageDir = args.image_folder #default is 'Predict'
     image_path_list = []
@@ -621,21 +623,22 @@ elif args.mode == "predict_folder":
 
         output_image = np.array(output_image[0,:,:,:])
 
-        print("------------")
-        print(output_image.shape)
-        print("------------")
-        print(output_image)
-        print("------------")
+        #print("------------")
+        #print(output_image.shape)
+        #print("------------")
+        #print(output_image)
+        #print("------------")
 
         #find the probabilities for each pixel
         sf = utils.softmax(output_image, theta = 1.55, axis = 2)
 
-        print(sf)
+        #print(sf)
+        sf_first = sf[:,:,0]
 
         sf_m = np.amax(sf, 2)
-        print("------------")
-        print(sf_m)
-        print("------------")
+        #print("------------")
+        #print(sf_m)
+        #print("------------")
 
         #find the max probabilities for each pixel
         #sf = helpers.reverse_one_hot(sf)
@@ -669,6 +672,8 @@ elif args.mode == "predict_folder":
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),unprocessed_image_sf)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*90)
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*90)
+
 
         # height, width, channels = resized_image_vis.shape
         # print("Original H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
@@ -684,8 +689,6 @@ elif args.mode == "predict_folder":
 
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
-
-        print("Wrote image " + "%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name))
 
         end3 = time.time()
         dur3 = dur3 + (end3-start3)
