@@ -672,8 +672,8 @@ elif args.mode == "predict_folder":
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
         cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),unprocessed_image_sf)
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*90)
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*90)
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*250)
+        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*250)
 
         # height, width, channels = resized_image_vis.shape
         # print("Original H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
