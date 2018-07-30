@@ -29,7 +29,7 @@ def ConvBlock(inputs, n_filters, kernel_size=[3, 3]):
     return net
 
 def InterpBlock(net, level, feature_map_shape, pooling_type):
-    
+
     # Compute the kernel and stride sizes according to how large the final feature map will be
     # When the kernel size and strides are equal, then we can compute the final feature map size
     # by simply dividing the current size by the kernel or stride size
@@ -76,12 +76,12 @@ def CFFBlock(F1, F2, num_classes):
 def build_icnet(inputs, label_size, num_classes, preset_model='ICNet-Res50', pooling_type = "MAX",
     weight_decay=1e-5, is_training=True, pretrained_dir="models"):
     """
-    Builds the ICNet model. 
+    Builds the ICNet model.
 
     Arguments:
       inputs: The input tensor
-      label_size: Size of the final label tensor. We need to know this for proper upscaling 
-      preset_model: Which model you want to use. Select which ResNet model to use for feature extraction 
+      label_size: Size of the final label tensor. We need to know this for proper upscaling
+      preset_model: Which model you want to use. Select which ResNet model to use for feature extraction
       num_classes: Number of classes
       pooling_type: Max or Average pooling
 
@@ -89,7 +89,7 @@ def build_icnet(inputs, label_size, num_classes, preset_model='ICNet-Res50', poo
       ICNet model
     """
 
-    inputs_4 = tf.image.resize_bilinear(inputs, size=[tf.shape(inputs)[1]*4,  tf.shape(inputs)[2]*4])   
+    inputs_4 = tf.image.resize_bilinear(inputs, size=[tf.shape(inputs)[1]*4,  tf.shape(inputs)[2]*4])
     inputs_2 = tf.image.resize_bilinear(inputs, size=[tf.shape(inputs)[1]*2,  tf.shape(inputs)[2]*2])
     inputs_1 = inputs
 
@@ -128,10 +128,10 @@ def build_icnet(inputs, label_size, num_classes, preset_model='ICNet-Res50', poo
     out_16, block_16 = CFFBlock(psp_32, end_points_16['pool3'])
     out_8, block_8 = CFFBlock(block_16, end_points_8['pool3'])
     out_4 = Upsampling_by_scale(out_8, scale=2)
-    out_4 = slim.conv2d(out_4, num_classes, [1, 1], activation_fn=None) 
+    out_4 = slim.conv2d(out_4, num_classes, [1, 1], activation_fn=None)
 
     out_full = Upsampling_by_scale(out_4, scale=2)
-    
+
     out_full = slim.conv2d(out_full, num_classes, [1, 1], activation_fn=None, scope='logits')
 
     net = tf.concat([out_16, out_8, out_4, out_final])

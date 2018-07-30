@@ -24,6 +24,8 @@ from GCN import build_gcn
 from DeepLabV3 import build_deeplabv3
 from DeepLabV3_plus import build_deeplabv3_plus
 from AdapNet import build_adaptnet
+from Enet import ENet
+from ICNet import build_icnet
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -63,7 +65,7 @@ parser.add_argument('--theta', type=float, default=1.5, help='Controls how flat 
 parser.add_argument('--model', type=str, default="FC-DenseNet56", help='The model you are using. Currently supports:\
     FC-DenseNet56, FC-DenseNet67, FC-DenseNet103, Encoder-Decoder, Encoder-Decoder-Skip, RefineNet-Res50, RefineNet-Res101, RefineNet-Res152, \
     FRRN-A, FRRN-B, MobileUNet, MobileUNet-Skip, PSPNet-Res50, PSPNet-Res101, PSPNet-Res152, GCN-Res50, GCN-Res101, GCN-Res152, DeepLabV3-Res50 \
-    DeepLabV3-Res101, DeepLabV3-Res152, DeepLabV3_plus-Res50, DeepLabV3_plus-Res101, DeepLabV3_plus-Res152, AdapNet, custom')
+    DeepLabV3-Res101, DeepLabV3-Res152, DeepLabV3_plus-Res50, DeepLabV3_plus-Res101, DeepLabV3_plus-Res152, AdapNet, custom, ENet')
 args = parser.parse_args()
 
 def load_image(path):
@@ -82,6 +84,38 @@ for class_name in class_names_list:
         class_names_string = class_names_string + class_name + ", "
     else:
         class_names_string = class_names_string + class_name
+
+def preprocess(image, annotation=None, height=360, width=480):
+    '''
+    Performs preprocessing for one set of image and annotation for feeding into network.
+    NO scaling of any sort will be done as per original paper.
+
+    INPUTS:
+    - image (Tensor): the image input 3D Tensor of shape [height, width, 3]
+    - annotation (Tensor): the annotation input 3D Tensor of shape [height, width, 1]
+    - height (int): the output height to reshape the image and annotation into
+    - width (int): the output width to reshape the image and annotation into
+
+    OUTPUTS:
+    - preprocessed_image(Tensor): the reshaped image tensor
+    - preprocessed_annotation(Tensor): the reshaped annotation tensor
+    '''
+
+    #Convert the image and annotation dtypes to tf.float32 if needed
+    if image.dtype != tf.float32:
+        image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+        # image = tf.cast(image, tf.float32)
+
+    image = tf.image.resize_image_with_crop_or_pad(image, height, width)
+    image.set_shape(shape=(height, width, 3))
+
+    if not annotation == None:
+        annotation = tf.image.resize_image_with_crop_or_pad(annotation, height, width)
+        annotation.set_shape(shape=(height, width, 1))
+
+        return image, annotation
+
+    return image
 
 num_classes = len(label_values)
 
@@ -105,6 +139,30 @@ print("Preparing the model ...")
 net_input = tf.placeholder(tf.float32,shape=[None,None,None,3])
 net_output = tf.placeholder(tf.float32,shape=[None,None,None,num_classes])
 
+#[batch_size, image_height, image_width, num_channels]
+net_input_Enet = tf.placeholder(tf.float32,shape=[args.batch_size,args.crop_height,args.crop_width,3])
+########################################################################################################
+#
+# image_files = sorted([os.path.join(args.dataset, 'train', file) for file in os.listdir(args.dataset + "/train") if file.endswith('.png')])
+# annotation_files = sorted([os.path.join(args.dataset, "train_labels", file) for file in os.listdir(args.dataset + "/train_labels") if file.endswith('.png')])
+#
+# #Load the files into one input queue
+# images = tf.convert_to_tensor(image_files)
+# annotations = tf.convert_to_tensor(annotation_files)
+# input_queue = tf.train.slice_input_producer([images, annotations]) #Slice_input producer shuffles the data by default.
+#
+# #Decode the image and annotation raw content
+# image = tf.read_file(input_queue[0])
+# image = tf.image.decode_image(image, channels=3)
+# annotation = tf.read_file(input_queue[1])
+# annotation = tf.image.decode_image(annotation)
+#
+# #preprocess and batch up the image and annotation
+# preprocessed_image, preprocessed_annotation = preprocess(image, annotation, args.crop_height, args.crop_width)
+# images, annotations = tf.train.batch([preprocessed_image, preprocessed_annotation], batch_size=args.batch_size, allow_smaller_final_batch=True)
+#
+# net_input_Enet = images
+#########################################################################################################
 network = None
 init_fn = None
 
@@ -131,11 +189,23 @@ elif args.model == "DeepLabV3-Res50" or args.model == "DeepLabV3-Res101" or args
     network, init_fn = build_deeplabv3(net_input, preset_model = args.model, num_classes=num_classes)
 elif args.model == "DeepLabV3_plus-Res50" or args.model == "DeepLabV3_plus-Res101" or args.model == "DeepLabV3_plus-Res152":
     # DeepLabV3+ requires pre-trained ResNet weights
+    print("-------------")
+    print(type(net_input))
+    print(net_input)
     network, init_fn = build_deeplabv3_plus(net_input, preset_model = args.model, num_classes=num_classes)
 elif args.model == "AdapNet":
     network = build_adaptnet(net_input, num_classes=num_classes)
 elif args.model == "custom":
     network = build_custom(net_input, num_classes)
+elif args.model == "ENet":
+    print("-------------")
+    print(type(net_input_Enet))
+    print(net_input_Enet)
+    print("-------------")
+    network = ENet(net_input_Enet, num_classes=num_classes, batch_size=args.batch_size)
+
+elif args.model == "ICNet-Res50":
+    network, init_fn = build_icnet(net_input,label_size = args.crop_width*args.crop_height, num_classes=num_classes, preset_model=args.model)
 else:
     raise ValueError("Error: the model %d is not available. Try checking which models are available using the command python main.py --help")
 
@@ -216,6 +286,7 @@ if args.mode == "train":
 
     # Do the training here
     for epoch in range(0, args.num_epochs):
+        print("You are on epoch: " + str(epoch))
 
         current_losses = []
 
@@ -229,18 +300,21 @@ if args.mode == "train":
         epoch_st=time.time()
         for i in range(num_iters):
             # st=time.time()
+            print("You are on num_iters: " + str(i))
 
             input_image_batch = []
             output_image_batch = []
 
             # Collect a batch of images
             for j in range(args.batch_size):
+                print("You are on batch_size: " + str(j))
                 index = i*args.batch_size + j
                 id = id_list[index]
                 input_image = load_image(train_input_names[id])
                 output_image = load_image(train_output_names[id])
 
                 with tf.device('/cpu:0'):
+                    print("CPU processing...")
                     input_image, output_image = helpers.data_augmentation(input_image, output_image, args.crop_height, args.crop_width, args.h_flip, args.v_flip, args.droplets_num, args.droplets_size, args.brightness, args.rotation)
 
                     # Prep the data. Make sure the labels are in one-hot format
@@ -249,6 +323,7 @@ if args.mode == "train":
 
                     input_image_batch.append(np.expand_dims(input_image, axis=0))
                     output_image_batch.append(np.expand_dims(output_image, axis=0))
+                    print("CPU processing done.")
 
             # ***** THIS CAUSES A MEMORY LEAK AS NEW TENSORS KEEP GETTING CREATED *****
             # input_image = tf.image.crop_to_bounding_box(input_image, offset_height=0, offset_width=0,
