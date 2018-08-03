@@ -654,9 +654,6 @@ elif args.mode == "predict_folder":
 
         i = i + 1;
 
-        #sys.stdout.write("Testing image " + imagePath)
-        #sys.stdout.flush()
-
         # to get the right aspect ratio of the output
         loaded_image = load_image(imagePath)
         if loaded_image is None:
@@ -672,7 +669,7 @@ elif args.mode == "predict_folder":
                 resized_image = cv2.resize(loaded_image, (args.crop_width, args.crop_height))
         else:
             if(args.pred_center_crop):
-                x_pad = int((loaded_image.shape[1]-1-args.crop_width)/2)
+                x_pad = int((loaded_imagse.shape[1]-1-args.crop_width)/2)
                 y_pad = int((loaded_image.shape[0]-1-args.crop_height)/2)
                 resized_image = loaded_image[y_pad:args.crop_height+y_pad, x_pad:args.crop_width+x_pad]
                 resized_image = resized_image[0:args.crop_height, 0:args.crop_width]
@@ -717,7 +714,7 @@ elif args.mode == "predict_folder":
         #print("------------")
 
         #find the max probabilities for each pixel
-        #sf = helpers.reverse_one_hot(sf)
+        sf = helpers.reverse_one_hot(sf)
 
         output_image = helpers.reverse_one_hot(output_image)
 
