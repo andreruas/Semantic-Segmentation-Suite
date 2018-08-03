@@ -218,21 +218,21 @@ def ProcessImage(img,removal):
 
 
     #------------------DRAW HORIZON--------------------------------------------------------------#
-    # green_mask2 = cv2.inRange(mask, lower_green, lower_green)
-    # x_points = [0,50,100,150,200,250,300,350,400,980,img.shape[1]-1]
-    # y_points = find_y_points(green_mask2, x_points,img)
-    # velocities = find_velocities(y_points)
-    #
-    # #print(velocities)
-    # median = statistics.median(velocities)
-    #
-    # thresh = median * 3
-    # if(thresh < 20):
-    #     thresh = 20
-    # color = (0,0,255)
+    green_mask2 = cv2.inRange(mask, lower_green, lower_green)
+    x_points = [0,50,100,150,200,250,300,350,400,img.shape[1]-50,img.shape[1]-1]
+    y_points = find_y_points(green_mask2, x_points,img)
+    velocities = find_velocities(y_points)
+
+    #print(velocities)
+    median = statistics.median(velocities)
+
+    thresh = median * 3
+    if(thresh < 20):
+        thresh = 20
+    color = (0,255,255)
     # print(thresh)
     #
-    # plot_lines(x_points,y_points,velocities,thresh,mask,color)
+    plot_lines(x_points,y_points,velocities,thresh,mask,color)
     # cv2.imshow("input",img)
     # cv2.imshow("output",mask)
     # cv2.waitKey(0)
