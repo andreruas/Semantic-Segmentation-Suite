@@ -71,6 +71,12 @@ def remove_contours_surrounded(contours, img, img_copy, mask, sensitivity):
             cv2.drawContours(mask, [c], -1, output_color, -1)
     return mask
 
+def remove_contours_sensitivity(contours, img, img_copy, mask, sensitivity):
+    for c in contours:
+        if (cv2.contourArea(c) < sensitivity):
+                cv2.drawContours(mask, [c], -1, (0,0,0), -1)
+    return mask
+
 def remove_contours_small(contours, img, img_copy, mask):
     for c in contours:
         area = cv2.contourArea(c)
@@ -173,8 +179,9 @@ black  = [0,   0,   0  ]
 blue   = [255, 128, 0  ]
 purple = [255, 0,   128]
 green  = [0,   255, 0  ]
+red    = [0,   0,   255]
 
-def ProcessImage(img,removal):
+def ProcessImageMARS(img,removal,args_post_processing):
     if(removal > 0):
         img[1:removal,:] = blue #replacing the top of the image with static sky mask
     mask = img
@@ -218,24 +225,22 @@ def ProcessImage(img,removal):
 
 
     #------------------DRAW HORIZON--------------------------------------------------------------#
-    green_mask2 = cv2.inRange(mask, lower_green, lower_green)
-    x_points = [0,50,100,150,200,250,300,350,400,img.shape[1]-50,img.shape[1]-1]
-    y_points = find_y_points(green_mask2, x_points,img)
-    velocities = find_velocities(y_points)
+    if (args_post_processing == 4):
+        green_mask2 = cv2.inRange(mask, lower_green, lower_green)
+        x_points = [0,50,100,150,200,250,300,350,400,img.shape[1]-50,img.shape[1]-1]
+        y_points = find_y_points(green_mask2, x_points,img)
+        velocities = find_velocities(y_points)
 
-    #print(velocities)
-    median = statistics.median(velocities)
+        print(velocities)
+        median = statistics.median(velocities)
 
-    thresh = median * 3
-    if(thresh < 20):
-        thresh = 20
-    color = (0,255,255)
-    # print(thresh)
-    #
-    plot_lines(x_points,y_points,velocities,thresh,mask,color)
-    # cv2.imshow("input",img)
-    # cv2.imshow("output",mask)
-    # cv2.waitKey(0)
+        thresh = median * 3
+        if(thresh < 20):
+           thresh = 20
+        color = (0,255,255)
+        print(thresh)
+
+        plot_lines(x_points,y_points,velocities,thresh,mask,color)
 
     return mask
 
@@ -244,25 +249,22 @@ def ProcessImage(img,removal):
 
 
 
+def ProcessImageRail(img,args_post_processing, args_rail_sens):
+    #------------------REMOVE RED --------------------------------------------------------------#
 
+    img_copy = img
+    img_copy[0,0] = [0,0,255]
+    img_copy[0,1] = green
+    img_copy[0,2] = blue
+    mask = img
 
+    lower_red = np.array(red, dtype = "uint16")
+    red_mask = cv2.inRange(img, lower_red, lower_red)
+    im2, contours, hierarchy = cv2.findContours(red_mask,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
+    mask = remove_contours_sensitivity(contours, img, img_copy, mask, args_rail_sens)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return mask
 
 
 

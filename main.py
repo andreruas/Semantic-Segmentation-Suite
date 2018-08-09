@@ -45,6 +45,8 @@ parser.add_argument('--image_folder', type=str, default="Predict", help='The dir
 parser.add_argument('--ratio_lock', type=str2bool, default=False, help='During prediction, whether or not to preserve aspect ratio for output images')
 parser.add_argument('--pred_center_crop', type=str2bool, default=True, help='During prediction, whether or not to center each crop')
 parser.add_argument('--pred_downsample', type=str2bool, default=True, help='During prediction, whether to downsample or crop')
+parser.add_argument('--post_processing', type=int, default=0, help='What kind of Post Processing to do. (0: None, 1:Rail, 2:MARS, 3:MARS with Horizon)')
+parser.add_argument('--rail_sens', type=int, default=300, help='Threshold for eliminating noise when processing rail images.')
 parser.add_argument('--continue_training', type=str2bool, default=False, help='Whether to continue training from a checkpoint')
 parser.add_argument('--dataset', type=str, default="CamVid", help='Dataset you are using.')
 parser.add_argument('--crop_height', type=int, default=512, help='Height of cropped input image to network')
@@ -539,22 +541,25 @@ elif args.mode == "predict_folder":
     print("Aspect Ratio Lock -->", args.ratio_lock)
     print("Pred Center Crop -->", args.pred_center_crop)
     print("Pred Downsample -->", args.pred_downsample)
+    print("Post Processing -->", args.post_processing)
+    print("Rail sensitivity -->", args.rail_sens)
     print("")
 
-    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Unprocessed")):
-            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Unprocessed"))
-    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Processed")):
-            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Processed"))
-    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Original")):
-            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Original"))
-    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Combined_proc")):
-            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Combined_proc"))
-    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Combined_unproc")):
-            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Combined_unproc"))
-    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Probabilities")):
-            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Probabilities"))
-    if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Probabilities_First")):
-            os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Probabilities_First"))
+    if (args.post_processing > 0):
+        if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Unprocessed")):
+                os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Unprocessed"))
+        if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Processed")):
+                os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Processed"))
+        if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Original")):
+                os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Original"))
+        if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Combined_proc")):
+                os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Combined_proc"))
+        if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Combined_unproc")):
+                os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Combined_unproc"))
+        if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Probabilities")):
+                os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Probabilities"))
+        if not os.path.isdir("%s_%s/%s"%("Test",args.image_folder,"Probabilities_First")):
+                os.makedirs("%s_%s/%s"%("Test",args.image_folder,"Probabilities_First"))
 
     imageDir = args.image_folder #default is 'Predict'
     image_path_list = []
@@ -607,8 +612,9 @@ elif args.mode == "predict_folder":
                 resized_image = loaded_image[0:args.crop_height, 0:args.crop_width]
 
         input_image = np.expand_dims(np.float32(resized_image[:args.crop_height, :args.crop_width]),axis=0)/255.0
-        resized_image_copy = resized_image
-        resized_image_vis = cv2.cvtColor(np.uint8(resized_image_copy), cv2.COLOR_RGB2BGR)
+        if (args.post_processing > 0):
+            resized_image_copy = resized_image
+            resized_image_vis = cv2.cvtColor(np.uint8(resized_image_copy), cv2.COLOR_RGB2BGR)
 
         st = time.time()
         end1 = time.time()
@@ -624,76 +630,58 @@ elif args.mode == "predict_folder":
 
         output_image = np.array(output_image[0,:,:,:])
 
-        #print("------------")
-        #print(output_image.shape)
-        #print("------------")
-        #print(output_image)
-        #print("------------")
+        if (args.post_processing > 0):
+            #find the probabilities for each pixel
+            sf = utils.softmax(output_image, theta = args.theta, axis = 2)
+            sf_first = sf[:,:,0]
+            sf_m = np.amax(sf, 2)
 
-        #find the probabilities for each pixel
-        sf = utils.softmax(output_image, theta = args.theta, axis = 2)
+            output_image = helpers.reverse_one_hot(output_image)
 
-        #print(sf)
-        sf_first = sf[:,:,0]
+            # this was generalized to accept any dataset
+            class_names_list, label_values = helpers.get_label_info(os.path.join(args.dataset, "class_dict.csv"))
 
-        sf_m = np.amax(sf, 2)
-        #print("------------")
-        #print(sf_m)
-        #print("------------")
+            out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
+            file_name = utils.filepath_to_name(imagePath)
+            unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
 
-        #find the max probabilities for each pixel
-        #sf = helpers.reverse_one_hot(sf)
+            if (args.post_processing >= 2):
+                processed_image = PostProcessing.ProcessImageMARS(cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR),args.removal, args.post_processing)
+            elif (args.post_processing == 1):
+                processed_image = PostProcessing.ProcessImageRail(cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR), args.post_processing, args.rail_sens)
 
-        output_image = helpers.reverse_one_hot(output_image)
+            unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR) #needs to be re-generated
+            unprocessed_image_sf = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_BGR2GRAY)
+            unprocessed_image_sf_o = unprocessed_image_sf * sf_m
 
-        # this was generalized to accept any dataset
-        class_names_list, label_values = helpers.get_label_info(os.path.join(args.dataset, "class_dict.csv"))
+            if resized_image_vis is None:
+                print("WARNING: image not found (1)")
+                continue
+            if processed_image is None:
+                print("WARNING: image not found (2)")
+                continue
+            if unprocessed_image is None:
+                print("WARNING: image not found (3)")
+                continue
 
-        out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
-        file_name = utils.filepath_to_name(imagePath)
-        unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
-        processed_image = PostProcessing.ProcessImage(cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR),args.removal)
-        unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR) #needs to be re-generated
+            cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image_vis)
+            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
+            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
+            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),unprocessed_image_sf)
+            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*250)
+            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*250)
 
-        unprocessed_image_sf = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_BGR2GRAY)
-        unprocessed_image_sf_o = unprocessed_image_sf * sf_m
+            combined_proc = cv2.addWeighted(resized_image_vis,0.6,processed_image,0.4,0)
+            combined_unproc = cv2.addWeighted(resized_image_vis,0.6,unprocessed_image,0.4,0)
 
-        if resized_image_vis is None:
-            print("WARNING: image not found (1)")
-            continue
-        if processed_image is None:
-            print("WARNING: image not found (2)")
-            continue
-        if unprocessed_image is None:
-            print("WARNING: image not found (3)")
-            continue
+            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
+            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
 
-        cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image_vis)
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),unprocessed_image_sf)
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*250)
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*250)
-
-        # height, width, channels = resized_image_vis.shape
-        # print("Original H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
-        #
-        # height, width, channels = processed_image.shape
-        # print("Processed H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
-        #
-        # height, width, channels = unprocessed_image.shape
-        # print("Unprocessed H/W/C: " + str(height) + " " + str(width) + " " + str(channels))
-
-        combined_proc = cv2.addWeighted(resized_image_vis,0.6,processed_image,0.4,0)
-        combined_unproc = cv2.addWeighted(resized_image_vis,0.6,unprocessed_image,0.4,0)
-
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
-        cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
-
-        print("Generating Predictions for: " + file_name)
+        print("Generated Predictions for: " + file_name)
         end3 = time.time()
         dur3 = dur3 + (end3-start3)
 
+    # Doing timings
     duration = time.time() - start
     avgSpeed = duration/i
     avgSpeed1 = dur1/i
