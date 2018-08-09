@@ -667,9 +667,8 @@ elif args.mode == "predict_folder":
             cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image_vis)
             cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
             cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
-            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),unprocessed_image_sf)
-            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*250)
-            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*250)
+            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*255)
+            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*255)
 
             combined_proc = cv2.addWeighted(resized_image_vis,0.6,processed_image,0.4,0)
             combined_unproc = cv2.addWeighted(resized_image_vis,0.6,unprocessed_image,0.4,0)
