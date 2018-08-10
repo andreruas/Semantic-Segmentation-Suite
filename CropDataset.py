@@ -7,7 +7,7 @@ import numpy as np
 
 print (cv2.__version__)
 
-imageDir = "datasets/" #specify your path here
+imageDir = "RD2_256" #specify your path here
 image_path_list = []
 valid_image_extensions = ".png" #specify your image extension here
 
@@ -29,7 +29,7 @@ for imagePath in image_path_list:
     
     #cropping images
     #img[y:y_end, x:x_end]
-    img1 = img[15:530, 15:1000]
+    img1 = img[128:384, 128:384]
 
     #imagePath2 = imagePath[:-4] + "_crop.png"
 

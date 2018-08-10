@@ -46,6 +46,7 @@ parser.add_argument('--ratio_lock', type=str2bool, default=False, help='During p
 parser.add_argument('--pred_center_crop', type=str2bool, default=True, help='During prediction, whether or not to center each crop')
 parser.add_argument('--pred_downsample', type=str2bool, default=True, help='During prediction, whether to downsample or crop')
 parser.add_argument('--post_processing', type=int, default=0, help='What kind of Post Processing to do. (0: None, 1:Rail, 2:MARS, 3:MARS with Horizon)')
+parser.add_argument('--generate_images', type=str2bool, default=True, help='During prediction, whether or not to generate images')
 parser.add_argument('--rail_sens', type=int, default=300, help='Threshold for eliminating noise when processing rail images.')
 parser.add_argument('--continue_training', type=str2bool, default=False, help='Whether to continue training from a checkpoint')
 parser.add_argument('--dataset', type=str, default="CamVid", help='Dataset you are using.')
@@ -474,7 +475,8 @@ elif args.mode == "test":
     print("Average run time = ", avg_time)
 
 ##-------------------------------------------------------------------------------------------------##
-elif args.mode == "predict":
+elif args.mode == "predict": # This method is not recommended for benchmarking speed
+                             # The first image that TensorFlow reads will take ~5x longer than the rest of the images
 
     ## Usage: python3 main.py --mode predict --image test1.png --dataset datasetName --model DeepLabV3-Res152
 
@@ -543,6 +545,7 @@ elif args.mode == "predict_folder":
     print("Pred Downsample -->", args.pred_downsample)
     print("Post Processing -->", args.post_processing)
     print("Rail sensitivity -->", args.rail_sens)
+    print("Generate Images -->", args.generate_images)
     print("")
 
     if (args.post_processing > 0):
@@ -576,7 +579,8 @@ elif args.mode == "predict_folder":
     start = time.time()
     dur1 = 0 #timing first part of loop
     dur2 = 0 #timing second part of loop
-    dur3 = 0 #timing second part of loop
+    dur3 = 0
+    dur4 = 0
 
     for imagePath in sorted(image_path_list):
 
@@ -629,6 +633,7 @@ elif args.mode == "predict_folder":
         run_time = time.time()-st
 
         output_image = np.array(output_image[0,:,:,:])
+        file_name = utils.filepath_to_name(imagePath)
 
         if (args.post_processing > 0):
             #find the probabilities for each pixel
@@ -637,18 +642,19 @@ elif args.mode == "predict_folder":
             sf_m = np.amax(sf, 2)
 
             output_image = helpers.reverse_one_hot(output_image)
-
             # this was generalized to accept any dataset
             class_names_list, label_values = helpers.get_label_info(os.path.join(args.dataset, "class_dict.csv"))
 
             out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
-            file_name = utils.filepath_to_name(imagePath)
             unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR)
 
+            start4 = time.time()
             if (args.post_processing >= 2):
                 processed_image = PostProcessing.ProcessImageMARS(cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR),args.removal, args.post_processing)
             elif (args.post_processing == 1):
                 processed_image = PostProcessing.ProcessImageRail(cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR), args.post_processing, args.rail_sens)
+            end4 = time.time()
+            dur4 = dur4 + (end4-start4)
 
             unprocessed_image = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR) #needs to be re-generated
             unprocessed_image_sf = cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_BGR2GRAY)
@@ -664,19 +670,20 @@ elif args.mode == "predict_folder":
                 print("WARNING: image not found (3)")
                 continue
 
-            cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image_vis)
-            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
-            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
-            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*255)
-            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*255)
+            if (args.generate_images):
+                cv2.imwrite("%s_%s/%s/%s.png"%("Test",args.image_folder,"Original", file_name),resized_image_vis)
+                cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Unprocessed", file_name),unprocessed_image)
+                cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name),processed_image)
+                cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities", file_name),sf_m*255)
+                cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Probabilities_First", file_name),sf_first*255)
 
-            combined_proc = cv2.addWeighted(resized_image_vis,0.6,processed_image,0.4,0)
-            combined_unproc = cv2.addWeighted(resized_image_vis,0.6,unprocessed_image,0.4,0)
+                combined_proc = cv2.addWeighted(resized_image_vis,0.6,processed_image,0.4,0)
+                combined_unproc = cv2.addWeighted(resized_image_vis,0.6,unprocessed_image,0.4,0)
 
-            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
-            cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
+                cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_proc", file_name),combined_proc)
+                cv2.imwrite("%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Combined_unproc", file_name),combined_unproc)
 
-        print("Generated Predictions for: " + file_name)
+        print("Generated Predictions for: " + "%s_%s/%s/%s_pred.png"%("Test",args.image_folder,"Processed", file_name))
         end3 = time.time()
         dur3 = dur3 + (end3-start3)
 
@@ -686,17 +693,20 @@ elif args.mode == "predict_folder":
     avgSpeed1 = dur1/i
     avgSpeed2 = dur2/i
     avgSpeed3 = dur3/i
+    avgSpeed4 = dur4/i
     FPS = 1/avgSpeed
-    FPS2 = round(1/avgSpeed2,1)
+    FPS2 = round(1/avgSpeed2,2)
+    FPS4 = round(1/avgSpeed4,2)
     print("")
     print("Finished!")
     print("")
     print("Model generated predictions for " + str(i) + " images in " + str(round(duration,3)) + " seconds.")
-    print("Average inference speed: " + str(round(avgSpeed,3)) + " seconds per image. (" + str(round(FPS,1)) +  " FPS)")
+    print("Average inference speed: " + str(round(avgSpeed,3)) + " seconds per image. (" + str(round(FPS,2)) +  " FPS)")
     print("")
     print("Reading image average time: " + str(round(avgSpeed1,3)))
     print("Predict image average time: " + str(round(avgSpeed2,3)) + " (" + str(FPS2) +  " FPS)")
     print("Writing image average time: " + str(round(avgSpeed3,3)))
+    print("Processing image average time: " + str(round(avgSpeed4,3))+ " (" + str(FPS4) +  " FPS)")
 
 
 ##-------------------------------------------------------------------------------------------------##

@@ -231,14 +231,14 @@ def ProcessImageMARS(img,removal,args_post_processing):
         y_points = find_y_points(green_mask2, x_points,img)
         velocities = find_velocities(y_points)
 
-        print(velocities)
+        #print(velocities)
         median = statistics.median(velocities)
 
         thresh = median * 3
         if(thresh < 20):
            thresh = 20
         color = (0,255,255)
-        print(thresh)
+        #print(thresh)
 
         plot_lines(x_points,y_points,velocities,thresh,mask,color)
 
