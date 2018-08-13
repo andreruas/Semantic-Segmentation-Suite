@@ -107,12 +107,12 @@ def build_adaptnet(inputs, num_classes):
       AdaptNet model
     """
 
-    n64 = 64 / 2
-    n128 = 128 / 2
-    n256 = 256 / 2
-    n512 = 512 / 2
-    n1024 = 1024 / 2
-    n2048 = 2048 / 2
+    n64 = 64 / 4
+    n128 = 128 / 4
+    n256 = 256 / 4
+    n512 = 512 / 4
+    n1024 = 1024 / 4
+    n2048 = 2048 / 4
 
     net = ConvBlock(inputs, n_filters=n64, kernel_size=[3, 3])
     net = ConvBlock(net, n_filters=n64, kernel_size=[7, 7], stride=2)
