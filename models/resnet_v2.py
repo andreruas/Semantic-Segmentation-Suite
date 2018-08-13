@@ -260,7 +260,7 @@ def resnet_v2_50(inputs,
       resnet_v2_block('block4', base_depth=512, num_units=3, stride=1),
   ]
   return resnet_v2(inputs, blocks, num_classes, is_training=is_training,
-                   global_pool=global_pool, output_stride=output_stride,
+                   global_pool=global_pool, output_stride=None,
                    include_root_block=True, spatial_squeeze=spatial_squeeze,
                    reuse=reuse, scope=scope)
 resnet_v2_50.default_image_size = resnet_v2.default_image_size
@@ -282,7 +282,7 @@ def resnet_v2_101(inputs,
       resnet_v2_block('block4', base_depth=512, num_units=3, stride=1),
   ]
   return resnet_v2(inputs, blocks, num_classes, is_training=is_training,
-                   global_pool=global_pool, output_stride=output_stride,
+                   global_pool=global_pool, output_stride=None,
                    include_root_block=True, spatial_squeeze=spatial_squeeze,
                    reuse=reuse, scope=scope)
 resnet_v2_101.default_image_size = resnet_v2.default_image_size
@@ -326,7 +326,7 @@ def resnet_v2_200(inputs,
       resnet_v2_block('block4', base_depth=512, num_units=3, stride=1),
   ]
   return resnet_v2(inputs, blocks, num_classes, is_training=is_training,
-                   global_pool=global_pool, output_stride=output_stride,
+                   global_pool=global_pool, output_stride=None,
                    include_root_block=True, spatial_squeeze=spatial_squeeze,
                    reuse=reuse, scope=scope)
 resnet_v2_200.default_image_size = resnet_v2.default_image_size

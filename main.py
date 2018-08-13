@@ -608,10 +608,10 @@ elif args.mode == "predict_folder":
         image_path_list.append(os.path.join(imageDir, file))
 
     start = time.time()
-    dur1 = 0 #timing first part of loop
-    dur2 = 0 #timing second part of loop
-    dur3 = 0
-    dur4 = 0
+    dur1 = 0.000001 #timing first part of loop
+    dur2 = 0.000001 #timing second part of loop
+    dur3 = 0.000001
+    dur4 = 0.000001
 
     for imagePath in sorted(image_path_list):
 

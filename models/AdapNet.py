@@ -96,43 +96,50 @@ def MultiscaleBlock_2(inputs, filters_1, filters_2, filters_3, p, d):
 
 def build_adaptnet(inputs, num_classes):
     """
-    Builds the AdaptNet model. 
+    Builds the AdaptNet model.
 
     Arguments:
-      inputs: The input tensor= 
-      preset_model: Which model you want to use. Select which ResNet model to use for feature extraction 
+      inputs: The input tensor=
+      preset_model: Which model you want to use. Select which ResNet model to use for feature extraction
       num_classes: Number of classes
 
     Returns:
       AdaptNet model
     """
-    net = ConvBlock(inputs, n_filters=64, kernel_size=[3, 3])
-    net = ConvBlock(net, n_filters=64, kernel_size=[7, 7], stride=2)
+
+    n64 = 64 / 2
+    n128 = 128 / 2
+    n256 = 256 / 2
+    n512 = 512 / 2
+    n1024 = 1024 / 2
+    n2048 = 2048 / 2
+
+    net = ConvBlock(inputs, n_filters=n64, kernel_size=[3, 3])
+    net = ConvBlock(net, n_filters=n64, kernel_size=[7, 7], stride=2)
     net = slim.pool(net, [2, 2], stride=[2, 2], pooling_type='MAX')
 
-    net = ResNetBlock_2(net, filters_1=64, filters_2=256, s=1)
-    net = ResNetBlock_1(net, filters_1=64, filters_2=256)
-    net = ResNetBlock_1(net, filters_1=64, filters_2=256)
+    net = ResNetBlock_2(net, filters_1=n64, filters_2=n256, s=1)
+    net = ResNetBlock_1(net, filters_1=n64, filters_2=n256)
+    net = ResNetBlock_1(net, filters_1=n64, filters_2=n256)
 
-    net = ResNetBlock_2(net, filters_1=128, filters_2=512, s=2)
-    net = ResNetBlock_1(net, filters_1=128, filters_2=512)
-    net = ResNetBlock_1(net, filters_1=128, filters_2=512)
+    net = ResNetBlock_2(net, filters_1=n128, filters_2=n512, s=2)
+    net = ResNetBlock_1(net, filters_1=n128, filters_2=n512)
+    net = ResNetBlock_1(net, filters_1=n128, filters_2=n512)
 
     skip_connection = ConvBlock(net, n_filters=12, kernel_size=[1, 1])
 
+    net = MultiscaleBlock_1(net, filters_1=n128, filters_2=n512, filters_3=n64, p=1, d=2)
 
-    net = MultiscaleBlock_1(net, filters_1=128, filters_2=512, filters_3=64, p=1, d=2)
+    net = ResNetBlock_2(net, filters_1=n256, filters_2=n1024, s=2)
+    net = ResNetBlock_1(net, filters_1=n256, filters_2=n1024)
+    net = MultiscaleBlock_1(net, filters_1=n256, filters_2=n1024, filters_3=n64, p=1, d=2)
+    net = MultiscaleBlock_1(net, filters_1=n256, filters_2=n1024, filters_3=n64, p=1, d=4)
+    net = MultiscaleBlock_1(net, filters_1=n256, filters_2=n1024, filters_3=n64, p=1, d=8)
+    net = MultiscaleBlock_1(net, filters_1=n256, filters_2=n1024, filters_3=n64, p=1, d=16)
 
-    net = ResNetBlock_2(net, filters_1=256, filters_2=1024, s=2)
-    net = ResNetBlock_1(net, filters_1=256, filters_2=1024)
-    net = MultiscaleBlock_1(net, filters_1=256, filters_2=1024, filters_3=64, p=1, d=2)
-    net = MultiscaleBlock_1(net, filters_1=256, filters_2=1024, filters_3=64, p=1, d=4)
-    net = MultiscaleBlock_1(net, filters_1=256, filters_2=1024, filters_3=64, p=1, d=8)
-    net = MultiscaleBlock_1(net, filters_1=256, filters_2=1024, filters_3=64, p=1, d=16)
-
-    net = MultiscaleBlock_2(net, filters_1=512, filters_2=2048, filters_3=512, p=2, d=4)
-    net = MultiscaleBlock_1(net, filters_1=512, filters_2=2048, filters_3=512, p=2, d=8)
-    net = MultiscaleBlock_1(net, filters_1=512, filters_2=2048, filters_3=512, p=2, d=16)
+    net = MultiscaleBlock_2(net, filters_1=n512, filters_2=n2048, filters_3=n512, p=2, d=4)
+    net = MultiscaleBlock_1(net, filters_1=n512, filters_2=n2048, filters_3=n512, p=2, d=8)
+    net = MultiscaleBlock_1(net, filters_1=n512, filters_2=n2048, filters_3=n512, p=2, d=16)
 
     net = ConvBlock(net, n_filters=12, kernel_size=[1, 1])
     net = Upsampling(net, scale=2)
@@ -142,7 +149,7 @@ def build_adaptnet(inputs, num_classes):
     net = Upsampling(net, scale=8)
 
 
-    
+
     net = slim.conv2d(net, num_classes, [1, 1], activation_fn=None, scope='logits')
 
     return net
