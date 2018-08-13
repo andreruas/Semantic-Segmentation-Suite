@@ -401,7 +401,16 @@ elif args.mode == "test":
     print("Num Classes -->", num_classes)
     print("")
 
-    ## Usage: python3 main.py --mode test --dataset dataSet --crop_height 515 --crop_width 915 --model DeepLabV3-Res152
+    # print("Removal -->", args.removal) ## TODO: Add more features to the testing suite
+    # print("Aspect Ratio Lock -->", args.ratio_lock)
+    # print("Pred Center Crop -->", args.pred_center_crop)
+    # print("Pred Downsample -->", args.pred_downsample)
+    # print("Post Processing -->", args.post_processing)
+    # print("Rail sensitivity -->", args.rail_sens)
+    # print("Generate Images -->", args.generate_images)
+    # print("")
+
+    ## Usage: python3 main.py --mode test --dataset dataSet --crop_height 256 --crop_width 512 --model DeepLabV3-Res152
 
     # Create directories if needed
     if not os.path.isdir("%s"%("Val")):
@@ -422,8 +431,30 @@ elif args.mode == "test":
         sys.stdout.write("\rRunning test image %d / %d"%(ind+1, len(test_input_names)))
         sys.stdout.flush()
 
-        input_image = np.expand_dims(np.float32(load_image(test_input_names[ind])[:args.crop_height, :args.crop_width]),axis=0)/255.0
-        gt = load_image(test_output_names[ind])[:args.crop_height, :args.crop_width]
+        if(args.pred_downsample): #not sure if I should be downsampling before or after reverse_one_hot
+            input_image = np.expand_dims(np.float32(load_image(test_input_names[ind])),axis=0)/255.0
+            gt = load_image(test_output_names[ind])
+
+            input_image2 = input_image[0,:,:,:]
+
+            input_image = np.expand_dims(cv2.resize(input_image2, (args.crop_width, args.crop_height), cv2.INTER_AREA),axis=0)
+            gt = cv2.resize(gt, (args.crop_width, args.crop_height), cv2.INTER_AREA)
+        else:
+            input_image = np.expand_dims(np.float32(load_image(test_input_names[ind])[:args.crop_height, :args.crop_width]),axis=0)/255.0
+            gt = load_image(test_output_names[ind])[:args.crop_height, :args.crop_width]
+
+        # input_image2 = input_image[0,:,:,:]
+        # print(type(input_image))
+        # print(input_image.shape)
+        # print(type(input_image2))
+        # print(input_image2.shape)
+        # input_image3 = np.expand_dims(input_image2,axis=0)
+        # print(type(input_image3))
+        # print(input_image3.shape)
+        # print(type(gt))
+        # print(gt.shape)
+        # print("---")
+
         gt = helpers.reverse_one_hot(helpers.one_hot_it(gt, label_values))
 
         st = time.time()
@@ -504,7 +535,7 @@ elif args.mode == "predict": # This method is not recommended for benchmarking s
     height, width, channels = loaded_image.shape
     resize_height = int(height / (width / args.crop_width))
 
-    resized_image =cv2.resize(loaded_image, (args.crop_width, resize_height))
+    resized_image =cv2.resize(loaded_image, (args.crop_width, resize_height), cv2.INTER_AREA)
     input_image = np.expand_dims(np.float32(resized_image[:args.crop_height, :args.crop_width]),axis=0)/255.0
 
     st = time.time()
@@ -601,9 +632,9 @@ elif args.mode == "predict_folder":
         if(args.pred_downsample):
             if(args.ratio_lock):
                 resize_height = int(height / (width / args.crop_width))
-                resized_image = cv2.resize(loaded_image, (args.crop_width, resize_height))
+                resized_image = cv2.resize(loaded_image, (args.crop_width, resize_height), cv2.INTER_AREA)
             else:
-                resized_image = cv2.resize(loaded_image, (args.crop_width, args.crop_height))
+                resized_image = cv2.resize(loaded_image, (args.crop_width, args.crop_height), cv2.INTER_AREA)
         else:
             if(args.pred_center_crop):
                 x_pad = int((loaded_image.shape[1]-1-args.crop_width)/2)
