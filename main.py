@@ -70,7 +70,8 @@ parser.add_argument('--model', type=str, default="FC-DenseNet56", help='The mode
 args = parser.parse_args()
 
 def load_image(path):
-    image = cv2.cvtColor(cv2.imread(path,-1), cv2.COLOR_BGR2RGB)
+    image = cv2.cvtColor(cv2.imread(path,1), cv2.COLOR_BGR2RGB)
+    # image = cv2.cvtColor(cv2.imread(path,-1), cv2.COLOR_BGR2RGB) # TODO: This doesn't work with .tif for some reason
     #image = cv2.imread(path,-1)
     return image
 
