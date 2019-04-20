@@ -566,7 +566,7 @@ elif args.mode == "predict_folder":
 
     imageDir = args.image_folder #default is 'Predict'
     image_path_list = []
-    valid_image_extensions = [".jpg", ".png"] #specify your image extension here
+    valid_image_extensions = [".jpg", ".png", ".tif"] #specify your image extension here
     i = 0
 
     #this will loop through all files in imageDir
