@@ -172,7 +172,7 @@ if init_fn is not None:
     init_fn(sess)
 
 # Load a previous checkpoint if desired
-model_checkpoint_name = "checkpoints/latest_model_" + args.model + "_" + args.dataset + ".ckpt"
+model_checkpoint_name = "checkpoints_2/latest_model_" + args.model + "_" + args.dataset + ".ckpt"
 if args.continue_training or not args.mode == "train":
     print('Loaded latest model checkpoint')
     saver.restore(sess, model_checkpoint_name)
@@ -284,8 +284,8 @@ if args.mode == "train":
         avg_loss_per_epoch.append(mean_loss)
 
         # Create directories if needed
-        if not os.path.isdir("%s/%04d"%("checkpoints",epoch)):
-            os.makedirs("%s/%04d"%("checkpoints",epoch))
+        if not os.path.isdir("%s/%04d"%("checkpoints_2",epoch)):
+            os.makedirs("%s/%04d"%("checkpoints_2",epoch))
 
         # Save latest checkpoint to same file name
         print("Saving latest checkpoint")
@@ -293,12 +293,12 @@ if args.mode == "train":
 
         if val_indices != 0 and epoch % args.checkpoint_step == 0:
             print("Saving checkpoint for this epoch")
-            saver.save(sess,"%s/%04d/model.ckpt"%("checkpoints",epoch))
+            saver.save(sess,"%s/%04d/model.ckpt"%("checkpoints_2",epoch))
 
 
         if epoch % args.validation_step == 0:
             print("Performing validation")
-            target=open("%s/%04d/val_scores.csv"%("checkpoints",epoch),'w')
+            target=open("%s/%04d/val_scores.csv"%("checkpoints_2",epoch),'w')
             target.write("val_name, avg_accuracy, precision, recall, f1 score, mean iou, %s\n" % (class_names_string))
 
             scores_list = []
@@ -342,8 +342,8 @@ if args.mode == "train":
 
                 file_name = os.path.basename(val_input_names[ind])
                 file_name = os.path.splitext(file_name)[0]
-                cv2.imwrite("%s/%04d/%s_pred.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
-                cv2.imwrite("%s/%04d/%s_gt.png"%("checkpoints",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
+                cv2.imwrite("%s/%04d/%s_pred.png"%("checkpoints_2",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
+                cv2.imwrite("%s/%04d/%s_gt.png"%("checkpoints_2",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
 
 
             target.close()
