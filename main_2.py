@@ -378,7 +378,8 @@ if args.mode == "train":
 
     fig = plt.figure(figsize=(11,8))
     ax1 = fig.add_subplot(111)
-    ax1.plot(range(args.num_epochs), avg_scores_per_epoch)
+    # ax1.plot(range(args.num_epochs), avg_scores_per_epoch)
+    ax1.plot(range(len(avg_scores_per_epoch)), avg_scores_per_epoch)
     ax1.set_title("Average validation accuracy vs epochs")
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Avg. val. accuracy")
@@ -386,11 +387,13 @@ if args.mode == "train":
     plt.clf()
 
     ax1 = fig.add_subplot(111)
-    ax1.plot(range(args.num_epochs), avg_loss_per_epoch)
+    # ax1.plot(range(args.num_epochs), avg_loss_per_epoch)
+    ax1.plot(range(len(avg_loss_per_epoch)), avg_loss_per_epoch)
     ax1.set_title("Average loss vs epochs")
     ax1.set_xlabel("Epoch")
     ax1.set_ylabel("Current loss")
     plt.savefig('loss_vs_epochs_2.png')
+
 
 ##-------------------------------------------------------------------------------------------------##
 elif args.mode == "test":
