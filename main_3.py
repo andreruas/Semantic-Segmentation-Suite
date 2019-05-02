@@ -295,10 +295,87 @@ if args.mode == "train":
             print("Saving checkpoint for this epoch")
             saver.save(sess,"%s/%04d/model.ckpt"%("checkpoints_3",epoch))
 
+####################################################################################################################################
+        print("\n***** Begin training validation *****")
+
+        ## Usage: python3 main.py --mode test --dataset dataSet --crop_height 515 --crop_width 915 --model DeepLabV3-Res152
+
+        # Create directories if needed
+        if not os.path.isdir("%s"%("Val")):
+                os.makedirs("%s"%("Val"))
+
+        target=open("%s/val_scores.csv"%("Val"),'a')
+        target.write("val_name, avg_accuracy, precision, recall, f1 score, mean iou, %s\n" % (class_names_string))
+        scores_list = []
+        class_scores_list = []
+        precision_list = []
+        recall_list = []
+        f1_list = []
+        iou_list = []
+        run_times_list = []
+
+        # Run testing on ALL test images
+        for ind in range(len(test_input_names)):
+            sys.stdout.write("\rRunning test image %d / %d"%(ind+1, len(test_input_names)))
+            sys.stdout.flush()
+
+            input_image = np.expand_dims(np.float32(load_image(test_input_names[ind])[:args.crop_height, :args.crop_width]),axis=0)/255.0
+            gt = load_image(test_output_names[ind])[:args.crop_height, :args.crop_width]
+            gt = helpers.reverse_one_hot(helpers.one_hot_it(gt, label_values))
+
+            st = time.time()
+            output_image = sess.run(network,feed_dict={net_input:input_image})
+
+            run_times_list.append(time.time()-st)
+
+            output_image = np.array(output_image[0,:,:,:])
+            output_image = helpers.reverse_one_hot(output_image)
+            out_vis_image = helpers.colour_code_segmentation(output_image, label_values)
+
+            accuracy, class_accuracies, prec, rec, f1, iou = utils.evaluate_segmentation(pred=output_image, label=gt, num_classes=num_classes)
+
+            file_name = utils.filepath_to_name(test_input_names[ind])
+            target.write("%s, %f, %f, %f, %f, %f"%(file_name, accuracy, prec, rec, f1, iou))
+            for item in class_accuracies:
+                target.write(", %f"%(item))
+            target.write("\n")
+
+            scores_list.append(accuracy)
+            class_scores_list.append(class_accuracies)
+            precision_list.append(prec)
+            recall_list.append(rec)
+            f1_list.append(f1)
+            iou_list.append(iou)
+
+            gt = helpers.colour_code_segmentation(gt, label_values)
+
+            cv2.imwrite("%s/%s_pred.png"%("Val", file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
+            cv2.imwrite("%s/%s_gt.png"%("Val", file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
+
+        target.close()
+
+        avg_score = np.mean(scores_list)
+        class_avg_scores = np.mean(class_scores_list, axis=0)
+        avg_precision = np.mean(precision_list)
+        avg_recall = np.mean(recall_list)
+        avg_f1 = np.mean(f1_list)
+        avg_iou = np.mean(iou_list)
+        avg_time = np.mean(run_times_list)
+        print("Average test accuracy = ", avg_score)
+        print("Average per class test accuracies = \n")
+        for index, item in enumerate(class_avg_scores):
+            print("%s = %f" % (class_names_list[index], item))
+        print("Average precision = ", avg_precision)
+        print("Average recall = ", avg_recall)
+        print("Average F1 score = ", avg_f1)
+        print("Average mean IoU score = ", avg_iou)
+        print("Average run time = ", avg_time)
+
+##############################################################################################################################
 
         if epoch % args.validation_step == 0:
             print("Performing validation")
-            target=open("%s/%04d/val_scores.csv"%("checkpoints_3",epoch),'w')
+            target=open("%s/%04d/val_scores.csv"%("checkpoints_3",epoch),'a')
             target.write("val_name, avg_accuracy, precision, recall, f1 score, mean iou, %s\n" % (class_names_string))
 
             scores_list = []
