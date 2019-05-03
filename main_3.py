@@ -304,8 +304,9 @@ if args.mode == "train":
         if not os.path.isdir("%s"%("Val")):
                 os.makedirs("%s"%("Val"))
 
-        target=open("%s/val_scores.csv"%("Val"),'a')
-        target.write("val_name, avg_accuracy, precision, recall, f1 score, mean iou, %s\n" % (class_names_string))
+        target=open("%s/train_scores.csv"%("Val"),'a')
+        if (epoch == 0):
+            target.write("epoch, avg_score, avg_precision, avg_recall, avg_f1, avg_iou %s\n" % (class_names_string))
         scores_list = []
         class_scores_list = []
         precision_list = []
@@ -334,12 +335,6 @@ if args.mode == "train":
 
             accuracy, class_accuracies, prec, rec, f1, iou = utils.evaluate_segmentation(pred=output_image, label=gt, num_classes=num_classes)
 
-            file_name = utils.filepath_to_name(test_input_names[ind])
-            target.write("%s, %f, %f, %f, %f, %f"%(file_name, accuracy, prec, rec, f1, iou))
-            for item in class_accuracies:
-                target.write(", %f"%(item))
-            target.write("\n")
-
             scores_list.append(accuracy)
             class_scores_list.append(class_accuracies)
             precision_list.append(prec)
@@ -348,11 +343,6 @@ if args.mode == "train":
             iou_list.append(iou)
 
             gt = helpers.colour_code_segmentation(gt, label_values)
-
-            cv2.imwrite("%s/%s_pred.png"%("Val", file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
-            cv2.imwrite("%s/%s_gt.png"%("Val", file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
-
-        target.close()
 
         avg_score = np.mean(scores_list)
         class_avg_scores = np.mean(class_scores_list, axis=0)
@@ -371,10 +361,23 @@ if args.mode == "train":
         print("Average mean IoU score = ", avg_iou)
         print("Average run time = ", avg_time)
 
+        file_name = utils.filepath_to_name(test_input_names[ind])
+        target.write("%i, %f, %f, %f, %f, %f"%(epoch, avg_score, avg_precision, avg_recall, avg_f1, avg_iou))
+        for item in class_accuracies:
+            target.write(", %f"%(item))
+        target.write("\n")
+        target.close()
+
 ##############################################################################################################################
 
-        if epoch % args.validation_step == 0:
+        if 1:
+
             print("Performing validation")
+
+            target_avg=open("%s/val_scores.csv"%("Val"),'a')
+            if (epoch == 0):
+                target_avg.write("epoch, avg_score, avg_precision, avg_recall, avg_f1, avg_iou %s\n" % (class_names_string))
+
             target=open("%s/%04d/val_scores.csv"%("checkpoints_3",epoch),'a')
             target.write("val_name, avg_accuracy, precision, recall, f1 score, mean iou, %s\n" % (class_names_string))
 
@@ -419,9 +422,10 @@ if args.mode == "train":
 
                 file_name = os.path.basename(val_input_names[ind])
                 file_name = os.path.splitext(file_name)[0]
-                cv2.imwrite("%s/%04d/%s_pred.png"%("checkpoints_3",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
-                cv2.imwrite("%s/%04d/%s_gt.png"%("checkpoints_3",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
-
+                
+                if epoch % args.validation_step == 0:
+                    cv2.imwrite("%s/%04d/%s_pred.png"%("checkpoints_3",epoch, file_name),cv2.cvtColor(np.uint8(out_vis_image), cv2.COLOR_RGB2BGR))
+                    cv2.imwrite("%s/%04d/%s_gt.png"%("checkpoints_3",epoch, file_name),cv2.cvtColor(np.uint8(gt), cv2.COLOR_RGB2BGR))
 
             target.close()
 
@@ -441,6 +445,13 @@ if args.mode == "train":
             print("Validation recall = ", avg_recall)
             print("Validation F1 score = ", avg_f1)
             print("Validation IoU score = ", avg_iou)
+
+            file_name = utils.filepath_to_name(test_input_names[ind])
+            target_avg.write("%i, %f, %f, %f, %f, %f"%(epoch, avg_score, avg_precision, avg_recall, avg_f1, avg_iou))
+            for item in class_accuracies:
+                target_avg.write(", %f"%(item))
+            target_avg.write("\n")
+            target_avg.close()
 
         epoch_time=time.time()-epoch_st
         remain_time=epoch_time*(args.num_epochs-1-epoch)
