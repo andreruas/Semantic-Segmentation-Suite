@@ -301,10 +301,10 @@ if args.mode == "train":
         ## Usage: python3 main.py --mode test --dataset dataSet --crop_height 515 --crop_width 915 --model DeepLabV3-Res152
 
         # Create directories if needed
-        if not os.path.isdir("%s"%("Val")):
-                os.makedirs("%s"%("Val"))
+        if not os.path.isdir("%s"%("checkpoints_1/Val")):
+                os.makedirs("%s"%("checkpoints_1/Val"))
 
-        target=open("%s/train_scores.csv"%("Val"),'a')
+        target=open("%s/train_scores.csv"%("checkpoints_1/Val"),'a')
         if (epoch == 0):
             target.write("epoch, avg_score, avg_precision, avg_recall, avg_f1, avg_iou %s\n" % (class_names_string))
         scores_list = []
@@ -374,7 +374,7 @@ if args.mode == "train":
 
             print("Performing validation")
 
-            target_avg=open("%s/val_scores.csv"%("Val"),'a')
+            target_avg=open("%s/val_scores.csv"%("checkpoints_1/Val"),'a')
             if (epoch == 0):
                 target_avg.write("epoch, avg_score, avg_precision, avg_recall, avg_f1, avg_iou %s\n" % (class_names_string))
 
